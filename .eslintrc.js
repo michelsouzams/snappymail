@@ -25,6 +25,9 @@ module.exports = {
 		'CKEDITOR': "readonly",
 		'Squire': "readonly",
 		'SquireUI': "readonly",
+		// node_modules/photoswipe
+		'PhotoSwipe': "readonly",
+		'PhotoSwipeUI_Default': "readonly",
 		// node_modules/knockout but dev/External/ko.js is used
 //		'ko': "readonly",
 		// vendors/routes/

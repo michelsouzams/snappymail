@@ -53,7 +53,9 @@ config.paths.css = {
 			'vendors/normalize.css/normalize.css',
 			'vendors/fontastic/styles.css',
 			'vendors/inputosaurus/inputosaurus.css',
-			'vendors/flags/flags-fixed.css'
+			'vendors/flags/flags-fixed.css',
+			'node_modules/photoswipe/dist/photoswipe.css',
+			'node_modules/photoswipe/dist/default-skin/default-skin.css'
 		]
 	},
 	boot: {
@@ -83,6 +85,8 @@ config.paths.js = {
 			'vendors/qr.js/qr.min.js', // fixed (license)
 			'vendors/bootstrap/js/bootstrap.native.min.js', // fixed
 			'vendors/knockout/build/output/knockout-latest.js',
+			'node_modules/photoswipe/dist/photoswipe.js',
+			'node_modules/photoswipe/dist/photoswipe-ui-default.js',
 			'dev/External/ifvisible.js',
 			'dev/External/SquireUI.js'
 		]

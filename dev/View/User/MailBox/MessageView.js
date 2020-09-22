@@ -13,11 +13,12 @@ import {
 	MessageSetAction
 } from 'Common/Enums';
 
-import { $htmlCL, leftPanelDisabled, keyScopeReal, moveAction } from 'Common/Globals';
+import { $htmlCL, leftPanelDisabled, keyScopeReal, useKeyboardShortcuts, moveAction } from 'Common/Globals';
 
 import {
 	inFocus,
 	removeSelection,
+	removeInFocus,
 	mailToHelper,
 	isTransparent
 } from 'Common/Utils';
@@ -397,8 +398,75 @@ class MessageViewMailBoxUserView extends AbstractViewNext {
 	 * @param {Object} oAttachment
 	 * @returns {boolean}
 	 */
-	attachmentPreview() {
-		// TODO: add lightgallery alternative?
+	attachmentPreview(attachment) {
+/*
+		if (attachment && attachment.isImage() && !attachment.isLinked && this.message() && this.message().attachments()) {
+			const items = this.message().attachments().map(item => {
+					if (item && !item.isLinked && item.isImage()) {
+						if (item === attachment) {
+							index = listIndex;
+						}
+						++listIndex;
+						return {
+							src: item.linkPreview(),
+							msrc: item.linkThumbnail(),
+							title: item.fileName
+						};
+					}
+					return null;
+				}).filter(value => !!value);
+
+			if (items.length) {
+				let index = 0,
+					listIndex = 0,
+					pswpElement = document.getElementById('pswp');
+				if (!pswpElement) {
+					pswpElement = Element.fromHTML('<div id="pswp" class="pswp" tabindex="-1" role="dialog" aria-hidden="true">\
+	<div class="pswp__bg"></div>\
+	<div class="pswp__scroll-wrap">\
+		<div class="pswp__container">\
+			<div class="pswp__item"></div>\
+			<div class="pswp__item"></div>\
+			<div class="pswp__item"></div>\
+		</div>\
+		<div class="pswp__ui pswp__ui--hidden">\
+			<div class="pswp__top-bar">\
+				<div class="pswp__counter"></div>\
+				<button class="pswp__button pswp__button--close" title="Close (Esc)"></button>\
+				<button class="pswp__button pswp__button--share" title="Share"></button>\
+				<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>\
+				<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>\
+				<div class="pswp__preloader">\
+					<div class="pswp__preloader__icn">\
+					  <div class="pswp__preloader__cut">\
+						<div class="pswp__preloader__donut"></div>\
+					  </div>\
+					</div>\
+				</div>\
+			</div>\
+			<button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)"></button>\
+			<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button>\
+			<div class="pswp__caption">\
+				<div class="pswp__caption__center"></div>\
+			</div>\
+		</div>\
+	</div>\
+</div>');
+					document.body.append(pswpElement);
+				}
+				useKeyboardShortcuts(false);
+				removeInFocus(true);
+				var pswp = new PhotoSwipe( pswpElement, PhotoSwipeUI_Default, items, {
+					index: index,
+					shareEl: false
+				});
+				pswp.listen('close', () => useKeyboardShortcuts(true));
+				pswp.init();
+			}
+			return false;
+		}
+*/
+
 		return true;
 	}
 
