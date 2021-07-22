@@ -88,19 +88,7 @@ class Service
 //		unset($aPaths[1]); // was the rlspecauth/AuthAccountHash token
 		$this->oActions->Plugins()->RunHook('filter.http-paths', array(&$aPaths));
 
-		$bAdmin = false;
-		$sAdminPanelHost = $this->oActions->Config()->Get('security', 'admin_panel_host', '');
-		if (empty($sAdminPanelHost))
-		{
-			$sAdminPanelKey = \strtolower($this->oActions->Config()->Get('security', 'admin_panel_key', 'admin'));
-			$bAdmin = !empty($aPaths[0]) && \strtolower($aPaths[0]) === $sAdminPanelKey;
-		}
-		else if (empty($aPaths[0]) &&
-			\MailSo\Base\Utils::StrToLowerIfAscii($sAdminPanelHost) === \MailSo\Base\Utils::StrToLowerIfAscii($this->oHttp->GetHost()))
-		{
-			$bAdmin = true;
-		}
-
+		$bAdmin = ($this->oActions instanceof Actions\Admin);
 		$bAdmin || $this->oActions->getAuthAccountHash();
 
 		if ($this->oHttp->IsPost())

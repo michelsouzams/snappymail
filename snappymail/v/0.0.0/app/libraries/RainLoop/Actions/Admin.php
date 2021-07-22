@@ -9,7 +9,7 @@ use \RainLoop\KeyPathHelper;
 use \RainLoop\Notifications;
 use \RainLoop\Utils;
 
-trait Admin
+class Admin extends \RainLoop\Actions
 {
 	private static $AUTH_ADMIN_TOKEN_KEY = 'rlaauth';
 

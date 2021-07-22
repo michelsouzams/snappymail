@@ -31,9 +31,22 @@ class Api
 	public static function Actions() : Actions
 	{
 		static $oActions = null;
-		if (null === $oActions)
-		{
-			$oActions = new Actions();
+		if (!$oActions) {
+			$bAdmin = false;
+			$sAdminPanelHost = static::Config()->Get('security', 'admin_panel_host', '');
+			if (empty($sAdminPanelHost)) {
+				$bAdmin = !empty($aPaths[0]) && \strtolower($aPaths[0]) === \strtolower(static::Config()->Get('security', 'admin_panel_key', 'admin'));
+			}
+			else if (empty($aPaths[0]) &&
+				\MailSo\Base\Utils::StrToLowerIfAscii($sAdminPanelHost) === \MailSo\Base\Utils::StrToLowerIfAscii($this->oHttp->GetHost()))
+			{
+				$bAdmin = true;
+			}
+			if ($bAdmin) {
+				$oActions = new Actions\Admin();
+			} else {
+				$oActions = new Actions\User();
+			}
 		}
 
 		return $oActions;
@@ -41,7 +54,30 @@ class Api
 
 	public static function Config() : Config\Application
 	{
-		return static::Actions()->Config();
+		static $oConfig = null;
+		if (!$oConfig) {
+			$oConfig = new Config\Application();
+			if (!$oConfig->Load()) {
+				usleep(10000);
+				$oConfig->Load();
+			}
+
+//			if (!$bLoaded && !$oConfig->IsFileExists())
+//			{
+//				$bSave = true;
+//			}
+//
+//			if ($bLoaded && !$bSave)
+//			{
+//				$bSave = APP_VERSION !== $oConfig->Get('version', 'current');
+//			}
+//
+//			if ($bSave)
+//			{
+//				$oConfig->Save();
+//			}
+		}
+		return $oConfig;
 	}
 
 	public static function Logger() : \MailSo\Log\Logger

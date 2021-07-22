@@ -7,7 +7,7 @@ use \RainLoop\Exceptions\ClientException;
 use \RainLoop\Notifications;
 use \RainLoop\Utils;
 
-trait User
+class User extends \RainLoop\Actions
 {
 	use Accounts;
 	use Contacts;
@@ -15,6 +15,7 @@ trait User
 	use Folders;
 	use Messages;
 	use Templates;
+	use Raw;
 
 	/**
 	 * @throws \MailSo\Base\Exceptions\Exception

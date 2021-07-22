@@ -8,9 +8,6 @@ use RainLoop\Providers\Identities;
 
 class Actions
 {
-	use Actions\Admin;
-	use Actions\User;
-	use Actions\Raw;
 	use Actions\Response;
 	use Actions\Localization;
 	use Actions\Themes;
@@ -24,121 +21,99 @@ class Actions
 	/**
 	 * @var \MailSo\Base\Http
 	 */
-	private $oHttp;
+	private $oHttp = null;
 
 	/**
 	 * @var array
 	 */
-	private $aCurrentActionParams;
+	private $aCurrentActionParams = array();
 
 	/**
 	 * @var \MailSo\Mail\MailClient
 	 */
-	private $oMailClient;
+	private $oMailClient = null;
 
 	/**
 	 * @var \RainLoop\Plugins\Manager
 	 */
-	private $oPlugins;
+	private $oPlugins = null;
 
 	/**
 	 * @var \MailSo\Log\Logger
 	 */
-	private $oLogger;
+	private $oLogger = null;
 
 	/**
 	 * @var \MailSo\Log\Logger
 	 */
-	private $oLoggerAuth;
+	private $oLoggerAuth = null;
 
 	/**
 	 * @var array of \MailSo\Cache\CacheClient
 	 */
-	private $aCachers;
+	private $aCachers = array();
 
 	/**
 	 * @var Providers\Identities
 	 */
-	private $oIdentitiesProvider;
+	private $oIdentitiesProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Storage
 	 */
-	private $oStorageProvider;
+	private $oStorageProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Storage
 	 */
-	private $oLocalStorageProvider;
+	private $oLocalStorageProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Files
 	 */
-	private $oFilesProvider;
+	private $oFilesProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Domain
 	 */
-	private $oDomainProvider;
+	private $oDomainProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Settings
 	 */
-	private $oSettingsProvider;
+	private $oSettingsProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Settings
 	 */
-	private $oLocalSettingsProvider;
+	private $oLocalSettingsProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\AddressBook
 	 */
-	private $oAddressBookProvider;
+	private $oAddressBookProvider = null;
 
 	/**
 	 * @var \RainLoop\Providers\Suggestions
 	 */
-	private $oSuggestionsProvider;
-
-	/**
-	 * @var \RainLoop\Config\Application
-	 */
-	private $oConfig;
+	private $oSuggestionsProvider = null;
 
 	/**
 	 * @var string
 	 */
-	private $sSpecAuthToken;
+	private $sSpecAuthToken = '';
+
+	/**
+	 * @var bool
+	 */
+	private $bIsJson = false;
 
 	/**
 	 * @access private
 	 */
 	function __construct()
 	{
-		$this->aCurrentActionParams = array();
-
-		$this->oHttp = null;
-		$this->oLogger = null;
-		$this->oPlugins = null;
-		$this->oMailClient = null;
-		$this->oConfig = null;
-		$this->aCachers = array();
-
-		$this->oStorageProvider = null;
-		$this->oLocalStorageProvider = null;
-		$this->oSettingsProvider = null;
-		$this->oLocalSettingsProvider = null;
-		$this->oFilesProvider = null;
-		$this->oDomainProvider = null;
-		$this->oAddressBookProvider = null;
-		$this->oSuggestionsProvider = null;
-
-		$this->sSpecAuthToken = '';
-		$this->bIsJson = false;
-
-		$oConfig = $this->Config();
-		$this->Plugins()->RunHook('filter.application-config', array($oConfig));
+		$this->Plugins()->RunHook('filter.application-config', array($this->Config()));
 
 		$this->Logger()->Ping();
 	}
@@ -180,30 +155,7 @@ class Actions
 
 	public function Config(): Config\Application
 	{
-		if (null === $this->oConfig) {
-			$this->oConfig = new Config\Application();
-			if (!$this->oConfig->Load()) {
-				usleep(10000);
-				$this->oConfig->Load();
-			}
-
-//			if (!$bLoaded && !$this->oConfig->IsFileExists())
-//			{
-//				$bSave = true;
-//			}
-//
-//			if ($bLoaded && !$bSave)
-//			{
-//				$bSave = APP_VERSION !== $this->oConfig->Get('version', 'current');
-//			}
-//
-//			if ($bSave)
-//			{
-//				$this->oConfig->Save();
-//			}
-		}
-
-		return $this->oConfig;
+		return Api::Config();
 	}
 
 	/**
