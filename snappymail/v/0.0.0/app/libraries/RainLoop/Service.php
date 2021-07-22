@@ -81,7 +81,7 @@ class Service
 			exit(0);
 		}
 
-		$sQuery = $this->oActions->ParseQueryString();
+		$sQuery = Utils::ParseQueryString();
 
 		$this->oActions->Plugins()->RunHook('filter.http-query', array(&$sQuery));
 		$aPaths = \explode('/', $sQuery);

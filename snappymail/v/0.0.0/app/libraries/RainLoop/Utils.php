@@ -275,4 +275,29 @@ class Utils
 		return @\parse_ini_file($sFileName, !!$bProcessSections) ?: array();
 //		return @\parse_ini_string(\file_get_contents($sFileName), $bProcessSections) ?: array();
 	}
+
+	public static function ParseQueryString() : string
+	{
+		$sQuery = \trim($_SERVER['QUERY_STRING'] ?? '');
+
+		$iPos = \strpos($sQuery, '&');
+		if (0 < $iPos) {
+			$sQuery = \substr($sQuery, 0, $iPos);
+		}
+
+		$sQuery = \trim(\trim($sQuery), ' /');
+
+		$aSubQuery = $_GET['q'] ?? null;
+		if (\is_array($aSubQuery)) {
+			$aSubQuery = \array_map(function ($sS) {
+				return \trim(\trim($sS), ' /');
+			}, $aSubQuery);
+
+			if (0 < \count($aSubQuery)) {
+				$sQuery .= '/' . \implode('/', $aSubQuery);
+			}
+		}
+
+		return $sQuery;
+	}
 }

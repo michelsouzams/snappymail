@@ -34,6 +34,8 @@ class Api
 		if (!$oActions) {
 			$bAdmin = false;
 			$sAdminPanelHost = static::Config()->Get('security', 'admin_panel_host', '');
+
+			$aPaths = \explode('/', Utils::ParseQueryString());
 			if (empty($sAdminPanelHost)) {
 				$bAdmin = !empty($aPaths[0]) && \strtolower($aPaths[0]) === \strtolower(static::Config()->Get('security', 'admin_panel_key', 'admin'));
 			}
