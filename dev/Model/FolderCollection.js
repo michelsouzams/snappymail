@@ -17,6 +17,7 @@ import ko from 'ko';
 
 import { isPosNumeric } from 'Common/UtilsUser';
 import { i18n, trigger as translatorTrigger } from 'Common/Translator';
+import { mailBox } from 'Common/Links';
 
 import { AbstractModel } from 'Knoin/AbstractModel';
 
@@ -374,5 +375,12 @@ export class FolderModel extends AbstractModel {
 	 */
 	printableFullName() {
 		return this.fullName.replace(this.delimiter, ' / ');
+	}
+
+	/**
+	 * @returns {string}
+	 */
+	get href() {
+		return mailBox(this.fullNameHash)
 	}
 }

@@ -2,7 +2,7 @@ import ko from 'ko';
 
 import { Capa, Scope } from 'Common/Enums';
 import { leftPanelDisabled, moveAction, Settings } from 'Common/Globals';
-import { mailBox, settings } from 'Common/Links';
+import { settings } from 'Common/Links';
 import { setFolderHash } from 'Common/Cache';
 
 import { AppUserStore } from 'Stores/User/App';
@@ -86,9 +86,9 @@ export class FolderListMailBoxUserView extends AbstractViewLeft {
 							setFolderHash(folder.fullNameRaw, '');
 						}
 
-						rl.route.setHash((event.target.matches('.flag-icon') && !folder.isFlagged())
-							? mailBox(folder.fullNameHash, 1, 'is:flagged')
-							: mailBox(folder.fullNameHash)
+						rl.route.setHash(
+							el.getAttribute('href')
+							+ ((event.target.matches('.flag-icon') && !folder.isFlagged()) ? '/is:flagged' : '')
 						);
 					}
 
