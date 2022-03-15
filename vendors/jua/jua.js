@@ -1,7 +1,6 @@
 /* RainLoop Webmail (c) RainLoop Team | MIT */
 (doc => {
 	const
-		iDefLimit = 20,
 		defined = v => undefined !== v,
 		/**
 		 * @param {*} aItems
@@ -13,12 +12,11 @@
 		{
 			if (aItems && aItems.length)
 			{
-				iLimit = defined(iLimit) ? parseInt(iLimit || 0, 10) : iDefLimit;
 				let
+					oFile,
 					iInputLimit = iLimit,
-					oFile = null,
 					bUseLimit = 0 < iLimit,
-					bCallLimit = false
+					bCallLimit = !fLimitCallback
 				;
 
 				[...aItems].forEach(oItem => {
@@ -29,7 +27,7 @@
 							oFile = getDataFromFile(oItem);
 							oFile && fFileCallback(oFile);
 						}
-						else if (bUseLimit && !bCallLimit && 0 > iLimit && fLimitCallback)
+						else if (bUseLimit && !bCallLimit)
 						{
 							bCallLimit = true;
 							fLimitCallback(iInputLimit);
@@ -53,15 +51,15 @@
 				sType = oFile.type || ''
 			;
 
-			return (!sType && 0 == iSize)
-			? null // Folder
-			: {
-				'FileName': (oFile.name || '').replace(/^.*\/([^/]*)$/, '$1'),
-				'Size': iSize,
-				'Type': sType,
-				'Folder': '',
-				'File' : oFile
-			};
+			return (sType && iSize)
+			? {
+				FileName: (oFile.name || '').replace(/^.*\/([^/]*)$/, '$1'),
+				Size: iSize,
+				Type: sType,
+				Folder: '',
+				File : oFile
+			}
+			: null; // Folder
 		},
 
 		eventContainsFiles = oEvent =>
@@ -97,13 +95,24 @@
 
 	/**
 	 * @constructor
-	 * @param {Object=} oOptions
+	 * @param {Object=} options
 	 */
 	class Jua
 	{
-		constructor(oOptions)
+		constructor(options)
 		{
-			const self = this;
+			let timer,
+				el = options.clickElement;
+
+			const self = this,
+				timerStart = fn => {
+					timerStop();
+					timer = setTimeout(fn, 200);
+				},
+				timerStop = () => {
+					timer && clearTimeout(timer);
+					timer = 0;
+				};
 
 			self.oEvents = {
 				onSelect: null,
@@ -117,25 +126,16 @@
 				onLimitReached: null
 			};
 
-			oOptions = Object.assign({
-				action: '',
-				name: 'juaFile',
-				hidden: {},
-				disableMultiple: false,
-				queueSize: 10,
-				clickElement: null,
-				dragAndDropElement: null,
-				dragAndDropBodyElement: null,
-				disableDocumentDropPrevent: false,
-				multipleSizeLimit: iDefLimit
-			}, oOptions || {});
-
 			self.oXhrs = {};
 			self.oUids = {};
-			self.oOptions = oOptions;
-			self.oQueue = new Queue(oOptions.queueSize);
+			self.options = Object.assign({
+					action: '',
+					name: 'uploader',
+					hidden: {},
+					limit: 0
+				}, options || {});
+			self.oQueue = new Queue(1 == options.limit ? 1 : 2);
 
-			let el = oOptions.clickElement;
 			if (el) {
 				el.style.position = 'relative';
 				el.style.overflow = 'hidden';
@@ -146,12 +146,12 @@
 				self.generateNewInput(el);
 			}
 
-			el = oOptions.dragAndDropElement;
+			el = options.dragAndDropElement;
 			if (el)
 			{
-				let oBigDropZone = oOptions.dragAndDropBodyElement || doc;
+				let oBigDropZone = options.dragAndDropBodyElement || doc;
 
-				if (!oOptions.disableDocumentDropPrevent)
+				if (!options.disableDocumentDropPrevent)
 				{
 					doc.addEventListener('dragover', oEvent => {
 						if (eventContainsFiles(oEvent))
@@ -171,24 +171,24 @@
 				if (oBigDropZone)
 				{
 					addEventListeners(oBigDropZone, {
-						dragover: () => self.docTimer.clear(),
+						dragover: () => timerStop(),
 						dragenter: oEvent => {
 							if (eventContainsFiles(oEvent))
 							{
-								self.docTimer.clear();
+								timerStop();
 								oEvent.preventDefault();
 
-								self.runEvent('onBodyDragEnter', [oEvent]);
+								self.runEvent('onBodyDragEnter', oEvent);
 							}
 						},
 						dragleave: oEvent =>
-							oEvent.dataTransfer && self.docTimer.start(() => self.runEvent('onBodyDragLeave', [oEvent])),
+							oEvent.dataTransfer && timerStart(() => self.runEvent('onBodyDragLeave', oEvent)),
 						drop: oEvent => {
 							if (oEvent.dataTransfer) {
 								let bFiles = eventContainsFiles(oEvent);
 								bFiles && oEvent.preventDefault();
 
-								self.runEvent('onBodyDragLeave', [oEvent]);
+								self.runEvent('onBodyDragLeave', oEvent);
 
 								return !bFiles;
 							}
@@ -201,10 +201,10 @@
 				addEventListeners(el, {
 					dragenter: oEvent => {
 						if (eventContainsFiles(oEvent)) {
-							self.docTimer.clear();
+							timerStop();
 
 							oEvent.preventDefault();
-							self.runEvent('onDragEnter', [el, oEvent]);
+							self.runEvent('onDragEnter', el, oEvent);
 						}
 					},
 					dragover: oEvent => {
@@ -213,7 +213,7 @@
 							{
 								let sEffect = oEvent.dataTransfer.effectAllowed;
 
-								self.docTimer.clear();
+								timerStop();
 
 								oEvent.dataTransfer.dropEffect = (sEffect === 'move' || sEffect === 'linkMove') ? 'move' : 'copy';
 
@@ -229,8 +229,8 @@
 						if (oEvent.dataTransfer) {
 							let oRelatedTarget = doc.elementFromPoint(oEvent.clientX, oEvent.clientY);
 							if (!oRelatedTarget || !el.contains(oRelatedTarget)) {
-								self.docTimer.clear();
-								self.runEvent('onDragLeave', [el, oEvent]);
+								timerStop();
+								self.runEvent('onDragLeave', el, oEvent);
 							}
 						}
 					},
@@ -243,15 +243,15 @@
 								oFile => {
 									if (oFile) {
 										self.addNewFile(oFile);
-										self.docTimer.clear();
+										timerStop();
 									}
 								},
-								oOptions.multipleSizeLimit,
+								self.options.limit,
 								self.getEvent('onLimitReached')
 							);
 						}
 
-						self.runEvent('onDragLeave', [oEvent]);
+						self.runEvent('onDragLeave', oEvent);
 					}
 				});
 			}
@@ -269,14 +269,10 @@
 
 		/**
 		 * @param {string} sName
-		 * @param {string=} aArgs
 		 */
-		runEvent(sName, aArgs)
+		runEvent(sName, ...aArgs)
 		{
-			if (this.oEvents[sName])
-			{
-				this.oEvents[sName].apply(null, aArgs || []);
-			}
+			this.oEvents[sName] && this.oEvents[sName].apply(null, aArgs);
 		}
 
 		/**
@@ -330,8 +326,8 @@
 					self = this,
 					oXhr = new XMLHttpRequest(),
 					oFormData = new FormData(),
-					sAction = this.oOptions.action,
-					aHidden = this.oOptions.hidden,
+					sAction = this.options.action,
+					aHidden = this.options.hidden,
 					fStartFunction = this.getEvent('onStart'),
 					fProgressFunction = this.getEvent('onProgress')
 				;
@@ -366,13 +362,13 @@
 								console.error(e);
 							}
 						}
-						this.getEvent('onComplete')(sUid, bResult, bResult ? oResult : null);
+						this.getEvent('onComplete')(sUid, bResult, oResult);
 					}
 				};
 
 				fStartFunction && fStartFunction(sUid);
 
-				oFormData.append(this.oOptions.name, oFileInfo['File']);
+				oFormData.append(this.options.name, oFileInfo['File']);
 				Object.entries(aHidden).forEach(([key, value]) =>
 					oFormData.append(key, (typeof value === "function" ? value(oFileInfo) : value).toString())
 				);
@@ -395,13 +391,14 @@
 			if (oClickElement)
 			{
 				const self = this,
+					limit = self.options.limit,
 					oInput = doc.createElement('input'),
 					onClick = ()=>oInput.click();
 
 				oInput.type = 'file';
 				oInput.tabIndex = -1;
 				oInput.style.display = 'none';
-				oInput.multiple = !self.oOptions.disableMultiple;
+				oInput.multiple = 1 < limit;
 
 				oClickElement.addEventListener('click', onClick);
 
@@ -416,16 +413,16 @@
 					};
 					if (oInput.files && oInput.files.length) {
 						getDataFromFiles(oInput.files, fFileCallback,
-							self.oOptions.multipleSizeLimit,
+							limit,
 							self.getEvent('onLimitReached')
 						);
 					} else {
 						fFileCallback({
-							'FileName': oInput.value.split('\\').pop().split('/').pop(),
-							'Size': null,
-							'Type': null,
-							'Folder': '',
-							'File' : null
+							FileName: oInput.value.split(/\\\//).pop(),
+							Size: null,
+							Type: null,
+							Folder: '',
+							File : null
 						});
 					}
 				});
@@ -459,20 +456,6 @@
 		crypto.getRandomValues(arr);
 		return arr.map(dec => dec.toString(16).padStart(2,'0')).join('');
 	}
-
-	/**
-	 * @type {number}
-	 */
-	Jua.prototype.docTimer = {
-		start: function(fn){
-			this.clear();
-			this.timer = setTimeout(fn, 200);
-		},
-		clear: function(){
-			this.timer && clearTimeout(this.timer);
-			this.timer = 0;
-		}
-	};
 
 	this.Jua = Jua;
 

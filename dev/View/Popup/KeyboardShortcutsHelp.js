@@ -1,5 +1,4 @@
-import { Scope } from 'Common/Enums';
-
+import { addShortcut } from 'Common/Globals';
 import { AbstractViewPopup } from 'Knoin/AbstractViews';
 
 export class KeyboardShortcutsHelpPopupView extends AbstractViewPopup {
@@ -9,33 +8,16 @@ export class KeyboardShortcutsHelpPopupView extends AbstractViewPopup {
 	}
 
 	onBuild(dom) {
-		const tabs = dom.querySelectorAll('.nav.nav-tabs > li'),
-			last = tabs.length - 1,
-			show = tab => {
-				if (!tab.classList.contains('active')) {
-					const previous = tab.parentElement.querySelector('.active');
-					previous.classList.remove('active');
-					dom.querySelector(previous.firstElementChild.getAttribute('href')).classList.remove('active');
+		const tabs = dom.querySelectorAll('.tabs input'),
+			last = tabs.length - 1;
 
-					tab.classList.add('active');
-					dom.querySelector(tab.firstElementChild.getAttribute('href')).classList.add('active');
-				}
-			};
-
-		tabs.forEach(node => {
-			node.addEventListener('click', e => {
-				e.preventDefault();
-				show(node);
-			});
-		});
-
-//		shortcuts.add('tab', 'shift',
-		shortcuts.add('tab,arrowleft,arrowright', '',
-			Scope.KeyboardShortcutsHelp,
+//		addShortcut('tab', 'shift',
+		addShortcut('tab,arrowleft,arrowright', '',
+			'KeyboardShortcutsHelp',
 			event => {
 				let next = 0;
 				tabs.forEach((node, index) => {
-					if (node.matches('.active')) {
+					if (node.matches(':checked')) {
 						if (['Tab','ArrowRight'].includes(event.key)) {
 							next = index < last ? index+1 : 0;
 						} else {
@@ -43,8 +25,7 @@ export class KeyboardShortcutsHelpPopupView extends AbstractViewPopup {
 						}
 					}
 				});
-
-				show(tabs[next]);
+				tabs[next].checked = true;
 				return false;
 			}
 		);

@@ -15,7 +15,7 @@ trait Raw
 		$aValues = $this->getDecodedRawKeyValue($sRawKey);
 
 		$sFolder = isset($aValues['Folder']) ? $aValues['Folder'] : '';
-		$iUid = (int) (isset($aValues['Uid']) ? $aValues['Uid'] : 0);
+		$iUid = (isset($aValues['Uid']) ? (int) $aValues['Uid'] : 0);
 		$sMimeIndex = (string) (isset($aValues['MimeIndex']) ? $aValues['MimeIndex'] : '');
 
 		\header('Content-Type: text/plain');
@@ -25,7 +25,7 @@ trait Raw
 			{
 				\MailSo\Base\Utils::FpassthruWithTimeLimitReset($rResource);
 			}
-		}, $sFolder, $iUid, true, $sMimeIndex);
+		}, $sFolder, $iUid, $sMimeIndex);
 	}
 
 	public function RawDownload() : bool
@@ -147,8 +147,12 @@ trait Raw
 
 			$oAccount = $this->getAccountFromToken();
 
-			$sContentTypeOut = empty($sContentTypeIn) ?
-				\MailSo\Base\Utils::MimeContentType($sFileNameIn) : $sContentTypeIn;
+			// https://github.com/the-djmaze/snappymail/issues/144
+			if ('.pdf' === \substr($sFileNameIn,-4)) {
+				$sContentTypeOut = 'application/pdf'; // application/octet-stream
+			} else {
+				$sContentTypeOut = $sContentTypeIn ?: \MailSo\Base\Utils::MimeContentType($sFileNameIn);
+			}
 
 			$sFileNameOut = $this->MainClearFileName($sFileNameIn, $sContentTypeIn, $sMimeIndex);
 
@@ -202,6 +206,11 @@ trait Raw
 					if (empty($sFileNameOut))
 					{
 						$sFileNameOut = $sFileName;
+					}
+
+					// https://github.com/the-djmaze/snappymail/issues/144
+					if ('.pdf' === \substr($sFileNameOut,-4)) {
+						$sContentTypeOut = 'application/pdf';
 					}
 
 					$sFileNameOut = $self->MainClearFileName($sFileNameOut, $sContentTypeOut, $sMimeIndex);
@@ -269,7 +278,7 @@ trait Raw
 
 						if ($sLoadedData)
 						{
-							if ($bIsRangeRequest && (0 < \strlen($sRangeStart) || 0 < \strlen($sRangeEnd)))
+							if ($bIsRangeRequest && (\strlen($sRangeStart) || \strlen($sRangeEnd)))
 							{
 								$iFullContentLength = \strlen($sLoadedData);
 
@@ -317,7 +326,7 @@ trait Raw
 						}
 					}
 				}
-			}, $sFolder, $iUid, true, $sMimeIndex);
+			}, $sFolder, $iUid, $sMimeIndex);
 	}
 
 	private static function loadImage(string $data, bool $bDetectImageOrientation = true, int $iThumbnailBoxSize = 0) : \SnappyMail\Image
