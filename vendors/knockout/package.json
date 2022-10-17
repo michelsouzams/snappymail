@@ -20,12 +20,10 @@
     "preprocess": "build/build.sh",
     "html": "spec/runner.html?src=build/output/knockout-latest.js&testling=true",
     "browsers": [
-      "chrome/68..latest",
-      "firefox/56..latest",
-      "safari/10..latest",
-      "opera/11.0..latest",
-      "iphone/6..latest",
-      "ipad/6..latest"
+      "chrome/69..latest",
+      "firefox/69..latest",
+      "safari/12..latest",
+      "opera/56..latest"
     ]
   },
   "licenses": [
@@ -35,11 +33,11 @@
     }
   ],
   "devDependencies": {
-    "grunt": "~0.4.1",
-    "grunt-cli": "~0.1.0"
+    "grunt": "^1.5.3",
+    "grunt-cli": "^1.4.3"
   },
   "dependencies": {
-    "closure-compiler": "^0.2.12",
-    "google-closure-compiler": "^20200830.0.0"
+    "closure-compiler": "0.2.12",
+    "google-closure-compiler": "^20220905.0.0"
   }
 }

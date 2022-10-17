@@ -1,32 +1,23 @@
-import { doc, dropdownVisibility, Settings } from 'Common/Globals';
+import { Settings } from 'Common/Globals';
 import { i18n } from 'Common/Translator';
 
 import { root } from 'Common/Links';
 
-export default App => {
-
-	addEventListener('keydown', event => {
-		event = event || window.event;
-		if (event && event.ctrlKey && !event.shiftKey && !event.altKey) {
-			if ('S' == event.key) {
-				event.preventDefault();
-			} else if ('A' == event.key) {
-				const sender = event.target;
-				if (
-					sender &&
-					('true' === '' + sender.contentEditable || (sender.matches && sender.matches('INPUT,TEXTAREA')))
-				) {
-					return;
-				}
-
-				getSelection().removeAllRanges();
-
-				event.preventDefault();
-			}
+import { isArray } from 'Common/Utils';
+const FormDataToObject = formData => {
+	var object = {};
+	formData.forEach((value, key) => {
+		if (!Reflect.has(object, key)){
+			object[key] = value;
+		} else {
+			isArray(object[key]) || (object[key] = [object[key]]);
+			object[key].push(value);
 		}
 	});
+	return object;
+};
 
-	addEventListener('click', ()=>rl.Dropdowns.detectVisibility());
+export default App => {
 
 	rl.app = App;
 	rl.logoutReload = App.logoutReload;
@@ -41,47 +32,20 @@ export default App => {
 		}
 	};
 
-	rl.Dropdowns = [];
-	rl.Dropdowns.register = function(element) { this.push(element); };
-	rl.Dropdowns.detectVisibility = (() =>
-		dropdownVisibility(!!rl.Dropdowns.find(item => item.classList.contains('show')))
-	).debounce(50);
-
 	rl.route = {
 		root: () => {
-			rl.route.setHash(root(), true);
 			rl.route.off();
+			hasher.setHash(root());
 		},
 		reload: () => {
 			rl.route.root();
-			setTimeout(() => (Settings.app('inIframe') ? parent : window).location.reload(), 100);
+			setTimeout(() => location.reload(), 100);
 		},
-		off: () => hasher.changed.active = false,
-		on: () => hasher.changed.active = true,
-		/**
-		 * @param {string} sHash
-		 * @param {boolean=} silence = false
-		 * @param {boolean=} replace = false
-		 * @returns {void}
-		 */
-		setHash: (hash, silence = false, replace = false) => {
-			hash = hash.replace(/^[#/]+/, '');
-
-			const cmd = replace ? 'replaceHash' : 'setHash';
-
-			if (silence) {
-				hasher.changed.active = false;
-				hasher[cmd](hash);
-				hasher.changed.active = true;
-			} else {
-				hasher.changed.active = true;
-				hasher[cmd](hash);
-				hasher.setHash(hash);
-			}
-		}
+		off: () => hasher.active = false,
+		on: () => hasher.active = true
 	};
 
-	rl.fetchJSON = (resource, init, postData) => {
+	rl.fetch = (resource, init, postData) => {
 		init = Object.assign({
 			mode: 'same-origin',
 			cache: 'no-cache',
@@ -90,27 +54,21 @@ export default App => {
 			credentials: 'same-origin',
 			headers: {}
 		}, init);
-		init.headers.Accept = 'application/json';
 		if (postData) {
 			init.method = 'POST';
-			init.headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+			init.headers['Content-Type'] = 'application/json';
+			postData = (postData instanceof FormData) ? FormDataToObject(postData) : postData;
 			postData.XToken = Settings.app('token');
-//			init.body = JSON.stringify(postData);
-			const formData = new FormData(),
-			buildFormData = (formData, data, parentKey) => {
-				if (data && typeof data === 'object' && !(data instanceof Date || data instanceof File)) {
-					Object.keys(data).forEach(key =>
-						buildFormData(formData, data[key], parentKey ? `${parentKey}[${key}]` : key)
-					);
-				} else {
-					formData.set(parentKey, data == null ? '' : data);
-				}
-			};
-			buildFormData(formData, postData);
-			init.body = new URLSearchParams(formData);
+			init.body = JSON.stringify(postData);
 		}
 
-		return fetch(resource, init).then(response => {
+		return fetch(resource, init);
+	};
+
+	rl.fetchJSON = (resource, init, postData) => {
+		init = Object.assign({ headers: {} }, init);
+		init.headers.Accept = 'application/json';
+		return rl.fetch(resource, init, postData).then(response => {
 			if (!response.ok) {
 				return Promise.reject('Network response error: ' + response.status);
 			}
@@ -135,11 +93,4 @@ export default App => {
 		});
 	};
 
-	window.__APP_BOOT = () => {
-		const cb = () => {
-			window.__APP_BOOT = null;
-			App.bootstart();
-		};
-		('loading' !== doc.readyState) ? cb() : doc.addEventListener('DOMContentLoaded', cb);
-	};
 };

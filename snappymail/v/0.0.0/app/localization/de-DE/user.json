@@ -6,7 +6,7 @@
 		"BCC": "BCC",
 		"CANCEL": "Abbrechen",
 		"CC": "CC",
-		"CLEAR": "Bereinigen",
+		"CLEAR": "Entfernen",
 		"CLOSE": "Schließen",
 		"CONTACTS": "Kontakte",
 		"DELETE": "Löschen",
@@ -20,17 +20,22 @@
 		"NAME": "Name",
 		"NONE": "Keine",
 		"NOT_SPAM": "Kein Spam",
+		"USERNAME": "Nutzername",
 		"PASSWORD": "Passwort",
 		"REPLY_TO": "Antwort an",
 		"SAVE": "Speichern",
+		"SAVE_CHANGES": "Änderungen speichern?",
 		"SEARCH": "Suchen",
 		"SPAM": "Spam",
 		"SUBJECT": "Betreff",
 		"TEST": "Testen",
-		"TO": "An"
+		"TO": "An",
+		"SERVER_MESSAGE": "Server-Nachricht",
+		"YES": "Ja",
+		"NO": "Nein"
 	},
 	"LOGIN": {
-		"LABEL_LOGIN": "Login",
+		"LABEL_LOGIN": "Anmeldung",
 		"LABEL_SIGN_ME": "Anmeldung merken",
 		"BUTTON_SIGN_IN": "Anmelden"
 	},
@@ -40,32 +45,29 @@
 		"BUTTON_HELP": "Hilfe"
 	},
 	"MOBILE": {
-		"BUTTON_MOBILE_VERSION": "mobile Version",
+		"BUTTON_MOBILE_VERSION": "Mobile Version",
 		"BUTTON_DESKTOP_VERSION": "Desktop Version"
 	},
 	"SEARCH": {
 		"TITLE_ADV": "Erweiterte Suche",
-		"LABEL_ADV_TEXT": "Text",
-		"LABEL_ADV_HAS_ATTACHMENT": "Anhang vorhanden",
-		"LABEL_ADV_HAS_ATTACHMENTS": "Anhänge vorhanden",
-		"LABEL_ADV_FLAGGED": "Markiert",
-		"LABEL_ADV_UNSEEN": "Ungelesen",
-		"LABEL_ADV_DATE": "Datum",
-		"LABEL_ADV_DATE_ALL": "Alle",
-		"LABEL_ADV_DATE_3_DAYS": "Nicht älter als 3 Tage",
-		"LABEL_ADV_DATE_7_DAYS": "Nicht älter als 1 Woche",
-		"LABEL_ADV_DATE_MONTH": "Nicht älter als 1 Monat",
-		"LABEL_ADV_DATE_3_MONTHS": "Nicht älter als 3 Monate",
-		"LABEL_ADV_DATE_6_MONTHS": "Nicht älter als 6 Monate",
-		"LABEL_ADV_DATE_YEAR": "Nicht älter als 1 Jahr"
-	},
-	"PREVIEW_POPUP": {
-		"FULLSCREEN": "Vollbild umschalten",
-		"ZOOM": "Herein-\/Herauszoomen",
-		"CLOSE": "Schließen (Esc)",
-		"GALLERY_PREV": "Zurück (Linke Pfeil-Taste)",
-		"GALLERY_NEXT": "Weiter (Rechte Pfeil-Taste)",
-		"GALLERY_COUNTER": "%curr% von %total%"
+		"TEXT": "Text",
+		"HAS_ATTACHMENT": "Anhang vorhanden",
+		"FLAGGED": "Markiert",
+		"UNSEEN": "Ungelesen",
+		"DATE": "Datum",
+		"DATE_ALL": "Alle",
+		"DATE_3_DAYS": "Nicht älter als 3 Tage",
+		"DATE_7_DAYS": "Nicht älter als 1 Woche",
+		"DATE_MONTH": "Nicht älter als 1 Monat",
+		"DATE_3_MONTHS": "Nicht älter als 3 Monate",
+		"DATE_6_MONTHS": "Nicht älter als 6 Monate",
+		"DATE_YEAR": "Nicht älter als 1 Jahr",
+		"SUBFOLDERS": "Unterordner",
+		"SUBFOLDERS_NONE": "Keine",
+		"SUBFOLDERS_SUBTREE": "Alle",
+		"SUBFOLDERS_SUBTREE_ONE": "Ein Level",
+		"REPLIED": "Antwortete",
+		"KEYWORD": "Tag"
 	},
 	"FOLDER_LIST": {
 		"BUTTON_COMPOSE": "Erstellen",
@@ -99,7 +101,6 @@
 		"EMPTY_SEARCH_LIST": "Keine Treffer für Ihre Suche.",
 		"SEARCH_RESULT_FOR": "Suchergebnisse für \"%SEARCH%\"",
 		"BACK_TO_MESSAGE_LIST": "Zurück zur Nachrichtenliste",
-		"EMPTY_SUBJECT_TEXT": "(Kein Betreff)",
 		"PUT_MESSAGE_HERE": "Ziehen Sie die Nachricht hierhin, um sie in der Liste anzuzeigen",
 		"TODAY_AT": "Heute um %TIME%",
 		"YESTERDAY_AT": "Gestern um %TIME%",
@@ -132,6 +133,8 @@
 		"BUTTON_THREAD_MORE": "Mehr Nachrichten",
 		"MENU_HEADERS": "Kopfzeilen anzeigen",
 		"MENU_VIEW_ORIGINAL": "Original anzeigen",
+		"HTML_VIEW": "Zeige Nachricht als HTML",
+		"PLAIN_VIEW": "Zeige Nachricht im Klartext",
 		"MENU_DOWNLOAD_ORIGINAL": "Als .eml-Datei herunterladen",
 		"MENU_FILTER_SIMILAR": "Ähnliche Nachrichten",
 		"MENU_PRINT": "Drucken",
@@ -142,10 +145,20 @@
 		"PRINT_LABEL_ATTACHMENTS": "Anhänge",
 		"MESSAGE_VIEW_DESC": "Wählen Sie eine Nachricht aus der Liste aus, um sie anzuzeigen.",
 		"MESSAGE_VIEW_MOVE_DESC": "Klicke auf den Ordnernamen auf der linken Seite, um die Nachricht zu verschieben.",
-		"PGP_SIGNED_MESSAGE_DESC": "OpenPGP-signierte Nachricht (klicken, um zu überprüfen)",
-		"PGP_ENCRYPTED_MESSAGE_DESC": "OpenPGP-verschlüsselte Nachricht (klicken, um zu entschlüsseln)",
 		"LINK_DOWNLOAD_AS_ZIP": "Als ZIP-Datei herunterladen",
-		"SPAM_SCORE": "Spam-Score"
+		"SPAM_SCORE": "Spam-Score",
+		"HAS_VIRUS_WARNING": "WARNUNG: Virus erkannt",
+		"TAGS": "Stichworte",
+		"NEW_TAG": "New tag"
+	},
+	"MESSAGE_TAGS": {
+		"$important": "Wichtig",
+		"$todo": "Machen",
+		"$label1": "Wichtig",
+		"$label2": "Arbeit",
+		"$label3": "Persönlich",
+		"$label4": "Machen",
+		"$label5": "Später"
 	},
 	"READ_RECEIPT": {
 		"SUBJECT": "Empfangsbestätigung (angezeigt) - %SUBJECT%",
@@ -155,6 +168,17 @@
 		"SEARCHING_DESC": "Suche läuft..."
 	},
 	"CONTACTS": {
+		"TAB_CONTACT": "Kontakt",
+		"TAB_LOCATIONS": "Standorte",
+		"TAB_BUSINESS": "Unternehmen",
+		"LABEL_ORGANIZATION": "Organisation",
+		"LABEL_DEPARTMENT": "Abteilung",
+		"LABEL_TITLE": "Titel",
+		"TAB_CRYPTO": "Krypto",
+		"ASK": "Frage stellen",
+		"NEVER": "Niemals",
+		"ALWAYS": "Immer",
+		"ALWAYS_IF_POSSIBLE": "Immer wenn möglich",
 		"BUTTON_ADD_CONTACT": "Kontakt hinzufügen",
 		"BUTTON_CREATE_CONTACT": "Kontakt anlegen",
 		"BUTTON_UPDATE_CONTACT": "Kontakt aktualisieren",
@@ -166,26 +190,20 @@
 		"EMPTY_SEARCH": "Keine Kontakte gefunden",
 		"CLEAR_SEARCH": "Suche leeren",
 		"CONTACT_VIEW_DESC": "Kontakt aus der Liste wählen, um ihn anzuzeigen.",
-		"LABEL_PHONE": "Telefon",
-		"LABEL_WEB": "Web",
 		"LABEL_BIRTHDAY": "Geburtstag",
-		"LINK_ADD_EMAIL": "E-Mail-Adresse hinzufügen",
-		"LINK_ADD_PHONE": "Nummer hinzufügen",
-		"LINK_BIRTHDAY": "Geburtstag",
 		"PLACEHOLDER_ENTER_DISPLAY_NAME": "Anzeigename eingeben",
 		"PLACEHOLDER_ENTER_LAST_NAME": "Nachnamen eingeben",
 		"PLACEHOLDER_ENTER_FIRST_NAME": "Vornamen eingeben",
 		"PLACEHOLDER_ENTER_NICK_NAME": "Spitzname eingeben",
 		"LABEL_READ_ONLY": "Schreibgeschützt",
-		"LABEL_SHARE": "Teilen",
 		"ADD_MENU_LABEL": "Hinzufügen",
 		"ADD_MENU_NICKNAME": "Spitzname",
-		"ADD_MENU_NOTES": "Anmerkung",
+		"ADD_MENU_NOTE": "Anmerkung",
 		"ADD_MENU_PHONE": "Telefon",
 		"ADD_MENU_URL": "URL",
 		"ADD_MENU_ADDRESS": "Adresse",
 		"ADD_MENU_BIRTHDAY": "Geburtstag",
-		"ADD_MENU_TAGS": "Tags",
+		"ADD_MENU_TAGS": "Schlagwörter",
 		"BUTTON_SHARE_ALL": "Jeder",
 		"BUTTON_SYNC": "Synchronisierung (CardDAV)"
 	},
@@ -198,7 +216,7 @@
 		"DISCARD_UNSAVED_DATA": "Nicht gespeicherte Daten löschen?",
 		"ATTACH_FILES": "Dateien anhängen",
 		"ATTACH_DROP_FILES_DESC": "Fügen Sie hier Dateien ein",
-		"REPLY_MESSAGE_TITLE": "%DATETIME%, %EMAIL% schrieb",
+		"REPLY_MESSAGE_TITLE": "Am %DATETIME% schrieb %EMAIL%",
 		"FORWARD_MESSAGE_TOP_TITLE": "-------- Weitergeleitete Nachricht -------",
 		"FORWARD_MESSAGE_TOP_SENT": "Gesendet",
 		"EMPTY_TO_ERROR_DESC": "Geben Sie bitte mindestens einen Empfänger an",
@@ -207,12 +225,9 @@
 		"ATTACHMENTS_UPLOAD_ERROR_DESC": "Es wurden noch nicht alle Anhänge hochgeladen.",
 		"BUTTON_REQUEST_READ_RECEIPT": "Empfangsbestätigung anfordern",
 		"BUTTON_MARK_AS_IMPORTANT": "Als Wichtig markieren",
-		"BUTTON_OPEN_PGP": "OpenPGP (nur bei unformatiertem Text)",
 		"BUTTON_REQUEST_DSN": "Übermittlungsstatus anfordern"
 	},
 	"POPUPS_ASK": {
-		"BUTTON_YES": "Ja",
-		"BUTTON_NO": "Nein",
 		"DESC_WANT_CLOSE_THIS_WINDOW": "Sind Sie sicher, dass Sie dieses Fenster schließen möchten?",
 		"DESC_WANT_DELETE_MESSAGES": "Sind Sie sicher, dass Sie diese Nachricht(en) löschen möchten?"
 	},
@@ -242,34 +257,27 @@
 		"TITLE_CLEAR_FOLDER": "Alle Nachrichten in diesem Ordner löschen?",
 		"DANGER_DESC_WARNING": "Achtung!",
 		"DANGER_DESC_HTML_1": "Dieser Schritt wird alle Nachrichten im Ordner <strong>%FOLDER%<\/strong> endgültig löschen.",
-		"DANGER_DESC_HTML_2": "Einmal begonnen, kann dieser Vorgang nicht mehr abgebrochen oder beendet werden.",
+		"DANGER_DESC_HTML_2": "Einmal begonnen, kann dieser Vorgang nicht mehr abgebrochen werden.",
 		"TITLE_CLEARING_PROCESS": "Ordner wird gelöscht ..."
 	},
-	"POPUPS_IMPORT_OPEN_PGP_KEY": {
-		"TITLE_IMPORT_OPEN_PGP_KEY": "OpenPGP-Schlüssel importieren",
-		"BUTTON_IMPORT_OPEN_PGP_KEY": "Importieren"
-	},
-	"POPUPS_VIEW_OPEN_PGP_KEY": {
-		"TITLE_VIEW_OPEN_PGP_KEY": "OpenPGP-Schlüssel anzeigen",
-		"BUTTON_SELECT": "Auswählen"
-	},
-	"POPUPS_GENERATE_OPEN_PGP_KEYS": {
-		"TITLE_GENERATE_OPEN_PGP_KEYS": "OpenPGP-Schlüssel generieren",
-		"LABEL_KEY_BIT_LENGTH": "Schlüssellänge",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "Generieren"
-	},
-	"POPUPS_COMPOSE_OPEN_PGP": {
-		"TITLE_COMPOSE_OPEN_PGP": "OpenPGP unterschreiben\/verschlüsseln",
+	"OPENPGP": {
+		"POPUP_IMPORT_TITLE": "OpenPGP-Schlüssel importieren",
+		"POPUP_IMPORT_BUTTON": "Importieren",
+		"POPUP_VIEW_TITLE": "OpenPGP-Schlüssel anzeigen",
+		"POPUP_VIEW_BUTTON": "Auswählen",
+		"POPUP_GENERATE_TITLE": "OpenPGP-Schlüssel generieren",
+		"POPUP_GENERATE_BUTTON": "Generieren",
+		"LABEL_KEY_TYPE": "Typ",
 		"LABEL_SIGN": "Unterschrift",
-		"LABEL_ENCRYPT": "Verschlüsselung",
-		"BUTTON_SIGN": "Unterschreiben",
-		"BUTTON_ENCRYPT": "Verschlüsseln",
-		"BUTTON_SIGN_AND_ENCRYPT": "Unterschreiben und verschlüsseln"
-	},
-	"POPUPS_MESSAGE_OPEN_PGP": {
-		"TITLE_MESSAGE_OPEN_PGP": "OpenPGP Decrypt",
-		"LABEL_KEY": "Private Key",
-		"BUTTON_DECRYPT": "Decrypt"
+		"LABEL_ENCRYPT": "Verschlüsseln",
+		"BUTTON_DECRYPT": "Entschlüsseln",
+		"BUTTON_VERIFY": "Überprüfen",
+		"SIGNED_MESSAGE": "OpenPGP-signierte Nachricht",
+		"ENCRYPTED_MESSAGE": "OpenPGP-verschlüsselte Nachricht",
+		"STORE_IN_GNUPG": "Auf dem Server als GnuPG speichern",
+		"BACKUP_ON_SERVER": "Auf dem Server verschlüsselt speichern",
+		"GOOD_SIGNATURE": "Gültige Unterschrift von %USER%",
+		"ERROR": "OpenPGP-Fehler: %ERROR%"
 	},
 	"POPUPS_FILTER": {
 		"TITLE_CREATE_FILTER": "Filter erstellen?",
@@ -329,10 +337,8 @@
 		"NOTIFICATION_ARCHIVE": "Sie haben keinen \"Archiv\"-Systemordner gewählt, in dem die archivierten Nachrichten abgelegt werden."
 	},
 	"TITLES": {
-		"LOGIN": "Anmeldung",
 		"MAILBOX": "Postfach",
-		"SETTINGS": "Einstellungen",
-		"COMPOSE": "Erstellen"
+		"SETTINGS": "Einstellungen"
 	},
 	"UPLOAD": {
 		"ERROR_FILE_IS_TOO_BIG": "Datei ist zu groß",
@@ -344,7 +350,8 @@
 		"ERROR_UNKNOWN": "Ein unbekannter Fehler trat beim Hochladen auf"
 	},
 	"EDITOR": {
-		"TEXT_SWITCHER_PLAINT_TEXT": "HTML <-> TEXT"
+		"TEXT_SWITCHER_PLAIN_TEXT": "HTML <-> TEXT",
+		"TEXT_SWITCHER_SOURCE": "HTML <-> QUELLE"
 	},
 	"SETTINGS_LABELS": {
 		"LABEL_PERSONAL_NAME": "Persönlich",
@@ -352,21 +359,20 @@
 		"LABEL_CONTACTS_NAME": "Kontakte",
 		"LABEL_FOLDERS_NAME": "Ordner",
 		"LABEL_ACCOUNTS_NAME": "Konten",
-		"LABEL_IDENTITIES_NAME": "Identitäten",
 		"LABEL_FILTERS_NAME": "Filter",
-		"LABEL_TEMPLATES_NAME": "Vorlagen",
 		"LABEL_SECURITY_NAME": "Sicherheit",
 		"LABEL_THEMES_NAME": "Themen"
 	},
 	"SETTINGS_FILTERS": {
 		"LEGEND_FILTERS": "Filter",
+		"SIMPLE": "Einfach",
+		"ADVANCED": "Fortschrittlich",
 		"BUTTON_ADD_SCRIPT": "Skript hinzufügen",
 		"SUBNAME_MOVE_TO": "Verschieben nach \"%FOLDER%\"",
 		"SUBNAME_FORWARD_TO": "Weiterleiten nach \"%EMAIL%\"",
 		"SUBNAME_REJECT": "Ablehnen",
 		"SUBNAME_VACATION_MESSAGE": "Urlaubsbenachrichtigung",
-		"SUBNAME_DISCARD": "Verwerfen",
-		"LOADING_PROCESS": "Aktualisiere Filterliste"
+		"SUBNAME_DISCARD": "Verwerfen"
 	},
 	"SETTINGS_SECURITY": {
 		"LEGEND_SECURITY": "Sicherheit",
@@ -377,29 +383,34 @@
 	},
 	"SETTINGS_GENERAL": {
 		"LEGEND_GENERAL": "Allgemein",
-		"LABEL_LANGUAGE": "Sprache",
-		"LABEL_IDENTITY": "Identität",
-		"LABEL_LAYOUT": "Layout",
-		"LABEL_LAYOUT_NO_SPLIT": "Keine Aufteilung",
-		"LABEL_LAYOUT_VERTICAL_SPLIT": "Vertikale Aufteilung",
-		"LABEL_LAYOUT_HORIZONTAL_SPLIT": "Horizontale Aufteilung",
-		"LABEL_EDITOR": "Standard-Texteditor",
-		"LABEL_EDITOR_HTML": "HTML",
-		"LABEL_EDITOR_PLAIN": "Unformatierter Text",
-		"LABEL_EDITOR_HTML_FORCED": "HTML (erzwungen)",
-		"LABEL_EDITOR_PLAIN_FORCED": "Unformatierter Text (erzwungen)",
-		"LABEL_VIEW_OPTIONS": "Optionen anzeigen",
-		"LABEL_USE_PREVIEW_PANE": "Vorschaufenster nutzen",
-		"LABEL_USE_CHECKBOXES_IN_LIST": "Kontrollkästchen in der Liste anzeigen",
-		"LABEL_USE_THREADS": "Als Unterhaltungen anzeigen",
-		"LABEL_REPLY_SAME_FOLDER": "Antworten im gleichen Ordner wie die Nachricht, auf die geantwortet wurde, abspeichern",
-		"LABEL_SHOW_IMAGES": "In der Nachricht enthaltene Bilder immer anzeigen",
-		"LABEL_REMOVE_COLORS": "Entferne Hintergrund- und Textfarben aus der Nachricht",
-		"LABEL_MESSAGE_PER_PAGE": "Nachrichten pro Seite",
-		"LABEL_NOTIFICATIONS": "Benachrichtigungen",
-		"LABEL_SOUND_NOTIFICATION": "Benachrichtigungston",
-		"LABEL_CHROME_NOTIFICATION_DESC": "Popups einblenden, wenn neue Nachrichten vorhanden sind",
-		"LABEL_CHROME_NOTIFICATION_DESC_DENIED": "(Vom Browser blockiert.)"
+		"LANGUAGE": "Sprache",
+		"IDENTITY": "Identität",
+		"LAYOUT": "Layout",
+		"LAYOUT_NO_SPLIT": "Keine Aufteilung",
+		"LAYOUT_VERTICAL_SPLIT": "Vertikale Aufteilung",
+		"LAYOUT_HORIZONTAL_SPLIT": "Horizontale Aufteilung",
+		"EDITOR": "Standard-Texteditor",
+		"EDITOR_HTML": "HTML",
+		"EDITOR_PLAIN": "Unformatierter Text",
+		"VIEW_OPTIONS": "Optionen anzeigen",
+		"USE_PREVIEW_PANE": "Vorschaufenster nutzen",
+		"HIDE_DELETED_MESSAGES": "Zum Löschen markierte Nachrichten ausblenden",
+		"USE_CHECKBOXES_IN_LIST": "Kontrollkästchen in der Liste anzeigen",
+		"USE_THREADS": "Als Unterhaltungen anzeigen",
+		"REPLY_SAME_FOLDER": "Antworten im gleichen Ordner wie die Nachricht, auf die geantwortet wurde, abspeichern",
+		"SHOW_IMAGES": "In der Nachricht enthaltene Bilder immer anzeigen",
+		"PREFER_HTML": "HTML gegenüber Klartext bevorzugen",
+		"PREFER_HTML_INFO": "Nachrichten können manchmal in beiden Formaten empfangen werden. Diese Option setzt, ob die Nachricht standardmäßig in HTML oder als Klartext angezeigt wird.",
+		"REMOVE_COLORS": "Entferne Hintergrund- und Textfarben aus der Nachricht",
+		"MESSAGE_PER_PAGE": "Nachrichten pro Seite",
+		"MARK_MESSAGE_READ_AFTER": "Nachricht als gelesen markieren nach",
+		"MSG_DEFAULT_ACTION": "Standardaktion",
+		"SECONDS": "Sekunden",
+		"NOTIFICATIONS": "Benachrichtigungen",
+		"SOUND_NOTIFICATION": "Benachrichtigungston",
+		"CHROME_NOTIFICATION_DESC": "Popups einblenden, wenn neue Nachrichten vorhanden sind",
+		"CHROME_NOTIFICATION_DESC_DENIED": "(Vom Browser blockiert.)",
+		"LIST_INLINE_ATTACHMENTS": "Inline-Anhänge in der Liste anzeigen"
 	},
 	"SETTINGS_CONTACTS": {
 		"LABEL_CONTACTS_AUTOSAVE": "Empfänger automatisch zu Ihrem Adressbuch hinzuzufügen",
@@ -407,7 +418,8 @@
 		"LABEL_CONTACTS_SYNC_ENABLE": "Remote-Synchronisierung aktivieren",
 		"LABEL_CONTACTS_SYNC_SERVER": "Server",
 		"LABEL_CONTACTS_SYNC_AB_URL": "Adressbuch-URL",
-		"LABEL_CONTACTS_SYNC_USER": "Benutzer"
+		"LABEL_CONTACTS_SYNC_USER": "Benutzer",
+		"SYNC_READ": "Nur lesend"
 	},
 	"SETTINGS_THEMES": {
 		"LEGEND_THEMES": "Themen",
@@ -436,7 +448,15 @@
 		"HELP_DELETE_FOLDER": "Ordner löschen",
 		"HELP_SHOW_HIDE_FOLDER": "Ordner ein-\/ausblenden",
 		"HELP_CHECK_FOR_NEW_MESSAGES": "Auf neue Nachrichten prüfen\/nicht prüfen",
-		"HIDE_UNSUBSCRIBED": "Nicht abonnierte Ordner ausblenden"
+		"HIDE_UNSUBSCRIBED": "Nicht abonnierte Ordner ausblenden",
+		"UNHIDE_KOLAB_FOLDERS": "Dehide Kolab Ordner",
+		"TYPE_CALENDAR": "Kalender",
+		"TYPE_CONFIGURATION": "Konfiguration",
+		"TYPE_CONTACTS": "Kontakte",
+		"TYPE_FILES": "Dateien",
+		"TYPE_JOURNAL": "Tagebuch",
+		"TYPE_NOTES": "Aufzeichnungen",
+		"TYPE_TASKS": "Aufgaben"
 	},
 	"SETTINGS_ACCOUNTS": {
 		"LEGEND_ACCOUNTS": "Konten",
@@ -447,13 +467,13 @@
 		"LOADING_PROCESS": "Aktualisiere Kontenliste",
 		"DEFAULT_IDENTITY_LABEL": "Standard"
 	},
-	"SETTINGS_OPEN_PGP": {
-		"BUTTON_ADD_OPEN_PGP_KEY": "OpenPGP-Schlüssel importieren",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "OpenPGP-Schlüssel generieren",
+	"SETTINGS_OPENPGP": {
+		"BUTTON_IMPORT_KEY": "Schlüssel importieren",
+		"BUTTON_GENERATE_KEY_PAIR": "Schlüssel generieren",
 		"TITLE_PRIVATE": "Privat",
 		"TITLE_PUBLIC": "Öffentlich",
-		"GENERATE_ONLY_HTTPS": "Nur HTTPS",
-		"LABEL_ALLOW_DRAFT_AUTOSAVE": "Automatically save draft"
+		"LABEL_ALLOW_DRAFT_AUTOSAVE": "Entwurf automatisch speichern",
+		"GET_MAILVELOPE": "Lade das Mailvelope Browser Addon herunter."
 	},
 	"SHORTCUTS_HELP": {
 		"LEGEND_SHORTCUTS_HELP": "Tastaturkürzel-Hilfe",
@@ -483,36 +503,24 @@
 		"LABEL_BLOCKQUOTES_TOGGLE": "Nachrichten-Blockzitate umschalten",
 		"LABEL_THREAD_NEXT": "Nächste Nachricht in Unterhaltung",
 		"LABEL_THREAD_PREV": "Vorherige Nachricht in Unterhaltung",
-		"LABEL_PRINT": "Drucken",
 		"LABEL_EXIT_FULLSCREEN": "Vollbildmodus verlassen",
 		"LABEL_CLOSE_MESSAGE": "Nachricht schließen (kein Vorschaubereich-Layout)",
 		"LABEL_SWITCH_TO_LIST": "Fokus auf Nachrichtenliste zurückschalten",
 		"LABEL_OPEN_COMPOSE_POPUP": "Erstellen-Popup öffnen",
-		"LABEL_MINIMIZE_COMPOSE_POPUP": "Minimize compose popup",
+		"LABEL_MINIMIZE_COMPOSE_POPUP": "Erstellen-Popup minimieren",
 		"LABEL_OPEN_IDENTITIES_DROPDOWN": "Identitätsauswahl öffnen",
 		"LABEL_SAVE_MESSAGE": "Nachricht speichern",
 		"LABEL_SEND_MESSAGE": "Nachricht senden",
 		"LABEL_CLOSE_COMPOSE": "Popup schließen"
 	},
-	"PGP_NOTIFICATIONS": {
-		"NO_PUBLIC_KEYS_FOUND": "Keine öffentlichen Schlüssel gefunden",
-		"NO_PUBLIC_KEYS_FOUND_FOR": "Keine öffentlichen Schlüssel für die E-Mail \"%EMAIL%\" gefunden",
-		"NO_PRIVATE_KEY_FOUND": "Keine privaten Schlüssel gefunden",
-		"NO_PRIVATE_KEY_FOUND_FOR": "Keine privaten Schlüssel für die E-Mail \"%EMAIL%\" gefunden",
-		"ADD_A_PUBLICK_KEY": "Öffentlicher Schlüssel hinzufügen",
-		"SELECT_A_PRIVATE_KEY": "Privaten Schlüssel auswählen",
-		"UNVERIFIRED_SIGNATURE": "Nich verifizierte Unterschrift",
-		"DECRYPTION_ERROR": "OpenPGP-Entschlüsselungsfehler",
-		"GOOD_SIGNATURE": "Gültige Unterschrift von %USER%",
-		"PGP_ERROR": "OpenPGP-Fehler: %ERROR%",
-		"SPECIFY_FROM_EMAIL": "Bitte die VON-E-Mail-Adresse angeben",
-		"SPECIFY_AT_LEAST_ONE_RECIPIENT": "Bitte geben Sie mindestens einen Empfänger an"
-	},
 	"NOTIFICATIONS": {
+		"REQUEST_ERROR": "Anfrage fehlgeschlagen",
+		"REQUEST_ABORTED": "Anfrage abgebrochen",
+		"REQUEST_TIMEOUT": "Antrag auf Auslieferung",
 		"INVALID_TOKEN": "Ungültiger Token",
 		"AUTH_ERROR": "Authentifizierung fehlgeschlagen",
-		"ACCESS_ERROR": "Zugriffsfehler",
 		"CONNECTION_ERROR": "Serververbindung kann nicht hergestellt werden",
+		"DOMAIN_ALREADY_EXISTS": "Diese Domain existiert bereits",
 		"DOMAIN_NOT_ALLOWED": "Diese Domain ist nicht zugelassen.",
 		"ACCOUNT_NOT_ALLOWED": "Konto ist nicht zugelassen.",
 		"CONTACTS_SYNC_ERROR": "Fehler bei Kontakte-Synchronisierung",
@@ -526,8 +534,8 @@
 		"INVALID_RECIPIENTS": "Ungültige Empfängeradressen",
 		"CANT_SAVE_FILTERS": "Die Filter können nicht gespeichert werden",
 		"CANT_GET_FILTERS": "Die Filter sind nicht verfügbar",
-		"CANT_ACTIVATE_FILTERS_SCRIPT": "Can't activate filters script",
-		"CANT_DELETE_FILTERS_SCRIPT": "Can't delete filters script",
+		"CANT_ACTIVATE_FILTERS_SCRIPT": "Filters-Skript kann nicht aktiviert werden",
+		"CANT_DELETE_FILTERS_SCRIPT": "Filters-Skript kann nicht gelöscht werden",
 		"FILTERS_ARE_NOT_CORRECT": "Die Filter sind fehlerhaft",
 		"CANT_CREATE_FOLDER": "Dieser Ordner kann nicht angelegt werden",
 		"CANT_RENAME_FOLDER": "Dieser Ordner kann nicht umbenannt werden",
@@ -535,17 +543,11 @@
 		"CANT_DELETE_NON_EMPTY_FOLDER": "Der Ordner kann nicht gelöscht werden; er ist nicht leer",
 		"CANT_SUBSCRIBE_FOLDER": "Dieser Ordner kann nicht abonniert werden",
 		"CANT_UNSUBSCRIBE_FOLDER": "Das Abonnement dieses Ordners kann nicht gelöscht werden",
-		"CANT_SAVE_SETTINGS": "Einstellungen können nicht gespeichert werden",
-		"CANT_SAVE_PLUGIN_SETTINGS": "Einstellungen können nicht gespeichert werden",
-		"DOMAIN_ALREADY_EXISTS": "Diese Domain existiert bereits",
-		"CANT_INSTALL_PACKAGE": "Paket konnte nicht installiert werden",
-		"CANT_DELETE_PACKAGE": "Paket konnte nicht entfernt werden",
-		"INVALID_PLUGIN_PACKAGE": "Plugin-Paket ist ungültig",
-		"UNSUPPORTED_PLUGIN_PACKAGE": "Plugin-Paket wird nicht unterstützt",
 		"DEMO_SEND_MESSAGE_ERROR": "Dieses Demokonto darf aus Sicherheitsgründen keine Nachrichten an externe E-Mail-Adressen versenden!",
 		"DEMO_ACCOUNT_ERROR": "Aus Sicherheitsgründen ist dieses Konto nicht zu dieser Aktion berechtigt!",
 		"ACCOUNT_ALREADY_EXISTS": "Dieses Konto existiert bereits",
 		"ACCOUNT_DOES_NOT_EXIST": "Dieser Account existiert nicht.",
+		"ACCOUNT_SWITCH_FAILED": "Konto wechseln \"%EMAIL%\" versagt",
 		"MAIL_SERVER_ERROR": "Beim Zugriff auf den E-Mail-Server trat ein Fehler auf.",
 		"INVALID_INPUT_ARGUMENT": "Ungültige Eingabe",
 		"UNKNOWN_ERROR": "Unbekannter Fehler"

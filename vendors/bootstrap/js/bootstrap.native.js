@@ -5,44 +5,40 @@
 	*/
 
 (doc => {
-	const setFocus = element => element.focus ? element.focus() : element.setActive();
+	const
+		setFocus = element => element.focus ? element.focus() : element.setActive(),
+		isArrow = e => 'ArrowUp' === e.key || 'ArrowDown' === e.key;
 
 	this.BSN = {
-		Dropdown: function(element) {
+		Dropdown: function(toggleBtn) {
 			let menu, menuItems = [];
 			const self = this,
-				parent = element.parentNode,
+				parent = toggleBtn.parentNode,
 				preventEmptyAnchor = e => {
-					const t = e.target, href = t.href || (t.parentNode && t.parentNode.href);
-					(href && href.slice(-1) === '#') && e.preventDefault();
+					const t = e.target;
+					('#' === (t.href || t.parentNode?.href)?.slice(-1)) && e.preventDefault();
 				},
 				open = bool => {
-					menu && menu.classList.toggle('show', bool);
+					menu?.classList.toggle('show', bool);
 					parent.classList.toggle('show', bool);
-					element.setAttribute('aria-expanded', bool);
-					element.open = bool;
+					toggleBtn.setAttribute('aria-expanded', bool);
+					toggleBtn.open = bool;
 					if (bool) {
-						element.removeEventListener('click',clickHandler);
+						toggleBtn.removeEventListener('click',clickHandler);
 					} else {
-						setTimeout(() => element.addEventListener('click',clickHandler), 1);
+						setTimeout(() => toggleBtn.addEventListener('click',clickHandler), 1);
 					}
 				},
 				toggleEvents = () => {
-					let action = (element.open ? 'add' : 'remove') + 'EventListener';
+					const action = (toggleBtn.open ? 'add' : 'remove') + 'EventListener';
 					doc[action]('click',dismissHandler);
 					doc[action]('keydown',preventScroll);
 					doc[action]('keyup',keyHandler);
 					doc[action]('focus',dismissHandler);
 				},
 				dismissHandler = e => {
-					let eventTarget = e.target,
-						inside = menu.contains(eventTarget),
-						hasData = eventTarget && (
-							(eventTarget.getAttribute && eventTarget.getAttribute('data-toggle'))
-							|| (eventTarget.parentNode && eventTarget.parentNode.getAttribute('data-toggle')));
-					if (!(hasData && inside)
-					 && !(e.type === 'focus' && (inside || eventTarget === element))
-					) {
+					const eventTarget = e.target;
+					if ((!menu.contains(eventTarget) && !toggleBtn.contains(eventTarget)) || e.type !== 'focus') {
 						self.hide();
 						preventEmptyAnchor(e);
 					}
@@ -51,18 +47,19 @@
 					self.show();
 					preventEmptyAnchor(e);
 				},
-				preventScroll = e => (e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.preventDefault(),
+				preventScroll = e => isArrow(e) && e.preventDefault(),
 				keyHandler = e => {
-					if (e.key === 'Escape') {
+					if ('Escape' === e.key) {
 						self.toggle();
-					} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+					} else if (isArrow(e)) {
 						let activeItem = doc.activeElement,
-							isMenuButton = activeItem === element,
+							isMenuButton = activeItem === toggleBtn,
 							idx = isMenuButton ? 0 : menuItems.indexOf(activeItem);
 						if (parent.contains(activeItem)) {
 							if (!isMenuButton) {
-								idx = e.key === 'ArrowUp' ? (idx > 1 ? idx-1 : 0)
-									: e.key === 'ArrowDown' ? (idx < menuItems.length-1 ? idx+1 : idx) : idx;
+								idx = 'ArrowUp' === e.key
+									? (idx > 1 ? idx-1 : 0)
+									: (idx < menuItems.length-1 ? idx+1 : idx);
 							}
 							menuItems[idx] && setFocus(menuItems[idx]);
 						} else {
@@ -76,40 +73,18 @@
 				!('tabindex' in menu) && menu.setAttribute('tabindex', '0');
 				open(true);
 				setTimeout(() => {
-					setFocus( menu.getElementsByTagName('INPUT')[0] || element );
+					setFocus( menu.getElementsByTagName('INPUT')[0] || toggleBtn );
 					toggleEvents();
 				},1);
 			};
 			self.hide = () => {
 				open(false);
 				toggleEvents();
-				setFocus(element);
+				setFocus(toggleBtn);
 			};
-			self.toggle = () => element.open ? self.hide() : self.show();
+			self.toggle = () => toggleBtn.open ? self.hide() : self.show();
 			open(false);
-			element.Dropdown = self;
-		},
-
-		Tab: class {
-			constructor(element) {
-				this.element = element
-				element.Tab = this;
-				element.addEventListener('click', e => {
-					e.preventDefault();
-					this.show();
-				});
-			}
-
-			show() {
-				const el = this.element, li = el.closest('li');
-				if (!li.classList.contains('active')) {
-					const previous = el.closest('ul').querySelector('.active a');
-					previous.closest('li').classList.remove('active');
-					doc.querySelector(previous.getAttribute('href')).classList.remove('active');
-					li.classList.add('active');
-					doc.querySelector(el.getAttribute('href')).classList.add('active');
-				}
-			}
+			toggleBtn.Dropdown = self;
 		}
 	};
 

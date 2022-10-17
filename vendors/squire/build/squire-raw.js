@@ -17,6 +17,7 @@ const
 	DOCUMENT_FRAGMENT_NODE = 11,     // Node.DOCUMENT_FRAGMENT_NODE,
 	SHOW_ELEMENT = 1,                // NodeFilter.SHOW_ELEMENT,
 	SHOW_TEXT = 4,                   // NodeFilter.SHOW_TEXT,
+	SHOW_ELEMENT_OR_TEXT = 5,
 
 	START_TO_START = 0, // Range.START_TO_START
 	START_TO_END = 1,   // Range.START_TO_END
@@ -31,12 +32,9 @@ const
 	ua = navigator.userAgent,
 
 	isMac = /Mac OS X/.test( ua ),
-	isWin = /Windows NT/.test( ua ),
 	isIOS = /iP(?:ad|hone|od)/.test( ua ) || ( isMac && !!navigator.maxTouchPoints ),
 
-	isGecko = /Gecko\//.test( ua ),
-	isEdge = /Edge\//.test( ua ),
-	isWebKit = !isEdge && /WebKit\//.test( ua ),
+	isWebKit = /WebKit\//.test( ua ),
 
 	ctrlKey = isMac ? 'meta-' : 'ctrl-',
 	osKey = isMac ? 'metaKey' : 'ctrlKey',
@@ -93,16 +91,12 @@ const
 			return UNKNOWN;
 		}
 
-		let nodeCategory;
-		if ( !Array.prototype.every.call( node.childNodes, isInline ) ) {
+		let nodeCategory =
+			Array.prototype.every.call( node.childNodes, isInline )
+			? ( inlineNodeNames.test( node.nodeName ) ? INLINE : BLOCK )
 			// Malformed HTML can have block tags inside inline tags. Need to treat
 			// these as containers rather than inline. See #239.
-			nodeCategory = CONTAINER;
-		} else if ( inlineNodeNames.test( node.nodeName ) ) {
-			nodeCategory = INLINE;
-		} else /*if ( blockElementNames.test( node.nodeName ) )*/ {
-			nodeCategory = BLOCK;
-		}
+			: CONTAINER;
 		nodeCategoryCache.set( node, nodeCategory );
 		return nodeCategory;
 	},
@@ -137,24 +131,15 @@ const
 			node.nodeName === node2.nodeName &&
 			node.nodeName !== 'A' &&
 			node.className === node2.className &&
-			( ( !node.style && !node2.style ) ||
-			  node.style.cssText === node2.style.cssText )
+			node.style?.cssText === node2.style?.cssText
 		);
 	},
 	hasTagAttributes = ( node, tag, attributes ) => {
-		if ( node.nodeName !== tag ) {
-			return false;
-		}
-		for ( let attr in attributes ) {
-			if ( node.getAttribute( attr ) !== attributes[ attr ] ) {
-				return false;
-			}
-		}
-		return true;
+		return node.nodeName === tag && Object.entries(attributes || {}).every(([k,v]) => node.getAttribute(k) === v);
 	},
 	getClosest = ( node, root, selector ) => {
-		node = (!node || node.closest ? node : node.parentElement);
-		node = node && node.closest(selector);
+		node = (node && !node.closest) ? node.parentElement : node;
+		node = node?.closest(selector);
 		return (node && root.contains(node)) ? node : null;
 	},
 	getNearest = ( node, root, tag, attributes ) => {
@@ -198,8 +183,7 @@ const
 
 	detach = node => {
 //		node.remove();
-		let parent = node.parentNode;
-		parent && parent.removeChild( node );
+		node.parentNode?.removeChild( node );
 		return node;
 	},
 
@@ -212,31 +196,25 @@ const
 
 	setStyle = ( node, style ) => {
 		if (typeof style === 'object') {
-			for ( let p in style ) {
-				node.style[p] = style[p];
-			}
+			Object.entries(style).forEach(([k,v]) => node.style[k] = v);
 		} else if ( style !== undefined ) {
 			node.setAttribute( 'style', style );
 		}
 	},
 
 	createElement = ( tag, props, children ) => {
-		let el = doc.createElement( tag ),
-			attr, value;
+		let el = doc.createElement( tag );
 		if ( props instanceof Array ) {
 			children = props;
 			props = null;
 		}
-		if ( props ) {
-			for ( attr in props ) {
-				value = props[ attr ];
-				if ('style' === attr) {
-					setStyle( el, value );
-				} else if ( value !== undefined ) {
-					el.setAttribute( attr, value );
-				}
+		props && Object.entries(props).forEach(([k,v]) => {
+			if ('style' === k) {
+				setStyle( el, v );
+			} else if ( v !== undefined ) {
+				el.setAttribute( k, v );
 			}
-		}
+		});
 		children && el.append( ...children );
 		return el;
 	},
@@ -270,8 +248,7 @@ const
 
 		if ( isInline( node ) ) {
 			child = node.firstChild;
-			while ( isWebKit && child &&
-					child.nodeType === TEXT_NODE && !child.data ) {
+			while ( isWebKit && child?.nodeType === TEXT_NODE && !child.data ) {
 				child.remove(  );
 				child = node.firstChild;
 			}
@@ -290,7 +267,7 @@ const
 			try {
 				node.append( fixer );
 			} catch ( error ) {
-				self.didError({
+				didError({
 					name: 'Squire: fixCursor – ' + error,
 					message: 'Parent: ' + node.nodeName + '/' + node.innerHTML +
 						' appendChild: ' + fixer.nodeName
@@ -333,9 +310,7 @@ const
 				}
 				wrapper = null;
 			}
-			if ( isContainer( child ) ) {
-				fixContainer( child, root );
-			}
+			isContainer( child ) && fixContainer( child, root );
 		}
 /*
 		// Not live
@@ -365,9 +340,7 @@ const
 			}
 		});
 */
-		if ( wrapper ) {
-			container.append( fixCursor( wrapper, root ) );
-		}
+		wrapper && container.append( fixCursor( wrapper, root ) );
 		return container;
 	},
 
@@ -504,7 +477,7 @@ const
 
 		// Remove extra <BR> fixer if present.
 		last = block.lastChild;
-		if ( last && last.nodeName === 'BR' ) {
+		if ( last?.nodeName === 'BR' ) {
 			last.remove(  );
 			--offset;
 		}
@@ -529,13 +502,12 @@ const
 
 		if ( prev && areAlike( prev, node ) ) {
 			if ( !isContainer( prev ) ) {
-				if ( isListItem ) {
-					block = createElement( 'DIV' );
-					block.append( empty( prev ) );
-					prev.append( block );
-				} else {
+				if ( !isListItem ) {
 					return;
 				}
+				block = createElement( 'DIV' );
+				block.append( empty( prev ) );
+				prev.append( block );
 			}
 			detach( node );
 			needsFix = !isContainer( node );
@@ -665,10 +637,8 @@ const
 		// Merge text nodes if adjacent. IE10 in particular will not focus
 		// between two text nodes
 		after = common.childNodes[ startOffset ];
-		before = after && after.previousSibling;
-		if ( before &&
-				before.nodeType === TEXT_NODE &&
-				after.nodeType === TEXT_NODE ) {
+		before = after?.previousSibling;
+		if ( before?.nodeType === TEXT_NODE && after.nodeType === TEXT_NODE ) {
 			startContainer = before;
 			startOffset = before.length;
 			beforeText = before.data;
@@ -726,11 +696,11 @@ const
 
 		// Ensure root has a block-level element in it.
 		child = root.firstChild;
-		if ( !child || child.nodeName === 'BR' ) {
+		if ( child && child.nodeName !== 'BR' ) {
+			range.collapse( true );
+		} else {
 			fixCursor( root, root );
 			range.selectNodeContents( root.firstChild );
-		} else {
-			range.collapse( true );
 		}
 		return frag;
 	},
@@ -839,7 +809,7 @@ const
 			if ( nodeAfterSplit && isContainer( nodeAfterSplit ) ) {
 				mergeContainers( nodeAfterSplit, root );
 			}
-			nodeAfterSplit = nodeBeforeSplit && nodeBeforeSplit.nextSibling;
+			nodeAfterSplit = nodeBeforeSplit?.nextSibling;
 			if ( nodeAfterSplit && isContainer( nodeAfterSplit ) ) {
 				mergeContainers( nodeAfterSplit, root );
 			}
@@ -860,24 +830,13 @@ const
 
 		nodeRange.selectNode( node );
 
-		if ( partial ) {
-			// Node must not finish before range starts or start after range
-			// finishes.
-			let nodeEndBeforeStart = ( range.compareBoundaryPoints(
-					END_TO_START, nodeRange ) > -1 ),
-				nodeStartAfterEnd = ( range.compareBoundaryPoints(
-					START_TO_END, nodeRange ) < 1 );
-			return ( !nodeEndBeforeStart && !nodeStartAfterEnd );
-		}
-		else {
-			// Node must start after range starts and finish before range
-			// finishes
-			let nodeStartAfterStart = ( range.compareBoundaryPoints(
-					START_TO_START, nodeRange ) < 1 ),
-				nodeEndBeforeEnd = ( range.compareBoundaryPoints(
-					END_TO_END, nodeRange ) > -1 );
-			return ( nodeStartAfterStart && nodeEndBeforeEnd );
-		}
+		return partial
+			// Node must not finish before range starts or start after range finishes.
+			? range.compareBoundaryPoints( END_TO_START, nodeRange ) < 0
+				&& range.compareBoundaryPoints( START_TO_END, nodeRange ) > 0
+			// Node must start after range starts and finish before range finishes
+			: range.compareBoundaryPoints( START_TO_START, nodeRange ) < 1
+				&& range.compareBoundaryPoints( END_TO_END, nodeRange ) > -1;
 	},
 
 	moveRangeBoundariesDownTree = range => {
@@ -900,7 +859,7 @@ const
 			while ( endContainer.nodeType !== TEXT_NODE ) {
 				child = endContainer.childNodes[ endOffset - 1 ];
 				if ( !child || isLeaf( child ) ) {
-					if ( maySkipBR && child && child.nodeName === 'BR' ) {
+					if ( maySkipBR && child?.nodeName === 'BR' ) {
 						--endOffset;
 						maySkipBR = false;
 						continue;
@@ -1001,8 +960,7 @@ const
 		} else if ( container !== root && isBlock( container ) ) {
 			block = container;
 		} else {
-			block = getNodeBefore( container, range.startOffset );
-			block = getNextBlock( block, root );
+			block = getNextBlock( getNodeBefore( container, range.startOffset ), root );
 		}
 		// Check the block actually intersects the range
 		return block && isNodeContainedInRange( range, block ) ? block : null;
@@ -1034,14 +992,19 @@ const
 	},
 
 	newContentWalker = root => createTreeWalker( root,
-		SHOW_TEXT|SHOW_ELEMENT,
+		SHOW_ELEMENT_OR_TEXT,
 		node => node.nodeType === TEXT_NODE ? notWS.test( node.data ) : node.nodeName === 'IMG'
 	),
 
 	rangeDoesStartAtBlockBoundary = ( range, root ) => {
 		let startContainer = range.startContainer;
 		let startOffset = range.startOffset;
+		let startBlock = getStartBlockOfRange( range, root );
 		let nodeAfterCursor;
+
+		if (!startBlock) {
+			return false;
+		}
 
 		// If in the middle or end of a text node, we're not at the boundary.
 		if ( startContainer.nodeType === TEXT_NODE ) {
@@ -1206,7 +1169,7 @@ const
 		// Save undo checkpoint and add any links in the preceding section.
 		// Remove any zws so we don't think there's content in an empty
 		// block.
-		self._recordUndoState( range );
+		self._recordUndoState( range, false );
 		if ( self._config.addLinks ) {
 			addLinks( range.startContainer, root, self );
 		}
@@ -1319,7 +1282,7 @@ const
 				break;
 			}
 
-			while ( child && child.nodeType === TEXT_NODE && !child.data ) {
+			while ( child?.nodeType === TEXT_NODE && !child.data ) {
 				next = child.nextSibling;
 				if ( !next || next.nodeName === 'BR' ) {
 					break;
@@ -1351,7 +1314,7 @@ const
 	toggleList = ( type, methodIfNotInList ) => ( self, event ) => {
 		event.preventDefault();
 		let parent = self.getSelectionClosest('UL,OL');
-		if (parent && type == parent.nodeName) {
+		if (type == parent?.nodeName) {
 			self.removeList();
 		} else {
 			self[ methodIfNotInList ]();
@@ -1413,16 +1376,15 @@ const
 
 	replaceStyles = node => {
 		let style = node.style;
-		let attr, converter, css, newTreeBottom, newTreeTop, el;
+		let css, newTreeBottom, newTreeTop, el;
 
-		for ( attr in styleToSemantic ) {
-			converter = styleToSemantic[ attr ];
+		Object.entries(styleToSemantic).forEach(([attr,converter])=>{
 			css = style[ attr ];
 			if ( css && converter.regexp.test( css ) ) {
 				el = converter.replace( doc, css );
 				if ( el.nodeName === node.nodeName &&
 						el.className === node.className ) {
-					continue;
+					return;
 				}
 				if ( !newTreeTop ) {
 					newTreeTop = el;
@@ -1433,7 +1395,7 @@ const
 				newTreeBottom = el;
 				node.style[ attr ] = '';
 			}
-		}
+		});
 
 		if ( newTreeTop ) {
 			newTreeBottom.append( empty( node ) );
@@ -1488,7 +1450,29 @@ const
 	allowedBlock = /^(?:A(?:DDRESS|RTICLE|SIDE|UDIO)|BLOCKQUOTE|CAPTION|D(?:[DLT]|IV)|F(?:IGURE|IGCAPTION|OOTER)|H[1-6]|HEADER|L(?:ABEL|EGEND|I)|O(?:L|UTPUT)|P(?:RE)?|SECTION|T(?:ABLE|BODY|D|FOOT|H|HEAD|R)|COL(?:GROUP)?|UL)$/,
 
 	blacklist = /^(?:HEAD|META|STYLE)/,
-
+/*
+	// Previous node in post-order.
+	previousPONode = walker => {
+		let current = walker.currentNode,
+			root = walker.root,
+			nodeType = walker.nodeType, // whatToShow?
+			filter = walker.filter,
+			node;
+		while ( current ) {
+			node = current.lastChild;
+			while ( !node && current && current !== root) {
+				node = current.previousSibling;
+				if ( !node ) { current = current.parentNode; }
+			}
+			if ( node && ( typeToBitArray[ node.nodeType ] & nodeType ) && filter( node ) ) {
+				walker.currentNode = node;
+				return node;
+			}
+			current = node;
+		}
+		return null;
+	},
+*/
 	/*
 		Two purposes:
 
@@ -1498,14 +1482,14 @@ const
 	*/
 	cleanTree = ( node, config, preserveWS ) => {
 		let children = node.childNodes,
-			nonInlineParent, i, l, child, nodeName, nodeType, childLength,
-			startsWithWS, endsWithWS, data, sibling;
+			nonInlineParent, i, l, child, nodeName, nodeType, childLength;
+//			startsWithWS, endsWithWS, data, sibling;
 
 		nonInlineParent = node;
 		while ( isInline( nonInlineParent ) ) {
 			nonInlineParent = nonInlineParent.parentNode;
 		}
-		let walker = createTreeWalker( nonInlineParent, SHOW_TEXT|SHOW_ELEMENT );
+//		let walker = createTreeWalker( nonInlineParent, SHOW_ELEMENT_OR_TEXT );
 
 		for ( i = 0, l = children.length; i < l; ++i ) {
 			child = children[i];
@@ -1530,6 +1514,7 @@ const
 					cleanTree( child, config,
 						preserveWS || ( nodeName === 'PRE' ) );
 				}
+/*
 			} else {
 				if ( nodeType === TEXT_NODE ) {
 					data = child.data;
@@ -1542,7 +1527,7 @@ const
 					// before the start of a new block we don't trim
 					if ( startsWithWS ) {
 						walker.currentNode = child;
-						while ( sibling = walker.previousPONode() ) {
+						while ( sibling = previousPONode(walker) ) {
 							nodeName = sibling.nodeName;
 							if ( nodeName === 'IMG' ||
 									( nodeName === '#text' &&
@@ -1554,7 +1539,7 @@ const
 								break;
 							}
 						}
-						data = data.replace( /^[ \t\r\n]+/g, sibling ? ' ' : '' );
+						data = data.replace( /^[ \r\n]+/g, sibling ? ' ' : '' );
 					}
 					if ( endsWithWS ) {
 						walker.currentNode = child;
@@ -1569,7 +1554,7 @@ const
 								break;
 							}
 						}
-						data = data.replace( /[ \t\r\n]+$/g, sibling ? ' ' : '' );
+						data = data.replace( /[ \r\n]+$/g, sibling ? ' ' : '' );
 					}
 					if ( data ) {
 						child.data = data;
@@ -1579,6 +1564,7 @@ const
 				child.remove(  );
 				--i;
 				--l;
+*/
 			}
 		}
 		return node;
@@ -1594,7 +1580,7 @@ const
 			child = children[l];
 			if ( child.nodeType === ELEMENT_NODE && !isLeaf( child ) ) {
 				removeEmptyInlines( child );
-				if ( isInline( child ) && !child.firstChild ) {
+				if ( !child.firstChild && isInline( child ) ) {
 					child.remove(  );
 				}
 			} else if ( child.nodeType === TEXT_NODE && !child.data ) {
@@ -1607,12 +1593,11 @@ const
 
 	notWSTextNode = node => node.nodeType === ELEMENT_NODE ? node.nodeName === 'BR' : notWS.test( node.data ),
 	isLineBreak = ( br, isLBIfEmptyBlock ) => {
-		let block = br.parentNode;
-		let walker;
+		let walker, block = br.parentNode;
 		while ( isInline( block ) ) {
 			block = block.parentNode;
 		}
-		walker = createTreeWalker( block, SHOW_ELEMENT|SHOW_TEXT, notWSTextNode );
+		walker = createTreeWalker( block, SHOW_ELEMENT_OR_TEXT, notWSTextNode );
 		walker.currentNode = br;
 		return !!walker.nextNode() ||
 			( isLBIfEmptyBlock && !walker.previousNode() );
@@ -1626,18 +1611,8 @@ const
 	// fixCursor method call.
 	cleanupBRs = ( node, root, keepForBlankLine ) => {
 		let brs = node.querySelectorAll( 'BR' );
-		let brBreaksLine = [];
 		let l = brs.length;
-		let i, br, parent;
-
-		// Must calculate whether the <br> breaks a line first, because if we
-		// have two <br>s next to each other, after the first one is converted
-		// to a block split, the second will be at the end of a block and
-		// therefore seem to not be a line break. But in its original context it
-		// was, so we should also convert it to a block split.
-		for ( i = 0; i < l; ++i ) {
-			brBreaksLine[i] = isLineBreak( brs[i], keepForBlankLine );
-		}
+		let br, parent;
 		while ( l-- ) {
 			br = brs[l];
 			// Cleanup may have removed it
@@ -1647,7 +1622,7 @@ const
 			// anything useful. We'll add it back later if required by the
 			// browser. If it breaks a line, wrap the content in div tags
 			// and replace the brs.
-			if ( !brBreaksLine[l] ) {
+			if ( !isLineBreak( br, keepForBlankLine ) ) {
 				detach( br );
 			} else if ( !isInline( parent ) ) {
 				fixContainer( parent, root );
@@ -1676,16 +1651,8 @@ const
 		node.setAttribute( 'style',
 			'position:fixed;overflow:hidden;bottom:100%;right:100%;' );
 		body.append( node );
-		text = node.innerText || node.textContent;
-		text = text.replace( NBSP, ' ' ); // Replace nbsp with regular space
+		text = (node.innerText || node.textContent).replace( NBSP, ' ' ); // Replace nbsp with regular space
 		node.remove(  );
-
-		// Firefox (and others?) returns unix line endings (\n) even on Windows.
-		// If on Windows, normalise to \r\n, since Notepad and some other crappy
-		// apps do not understand just \n.
-		if ( isWin ) {
-			text = text.replace( /\r?\n/g, '\r\n' );
-		}
 
 		if ( text !== html ) {
 			clipboardData.setData( 'text/html', html );
@@ -1695,20 +1662,14 @@ const
 	},
 
 	mergeObjects = ( base, extras, mayOverride ) => {
-		let prop, value;
-		if ( !base ) {
-			base = {};
-		}
-		if ( extras ) {
-			for ( prop in extras ) {
-				if ( mayOverride || !( prop in base ) ) {
-					value = extras[ prop ];
-					base[ prop ] = ( value && value.constructor === Object ) ?
-						mergeObjects( base[ prop ], value, mayOverride ) :
-						value;
-				}
+		base = base || {};
+		extras && Object.entries(extras).forEach(([prop,value])=>{
+			if ( mayOverride || !( prop in base ) ) {
+				base[ prop ] = ( value?.constructor === Object ) ?
+					mergeObjects( base[ prop ], value, mayOverride ) :
+					value;
 			}
-		}
+		});
 		return base;
 	},
 
@@ -1776,16 +1737,11 @@ const
 	},
 
 	splitBlock = ( self, block, node, offset ) => {
-		let splitTag = tagAfterSplit[ block.nodeName ],
-			nodeAfterSplit = split( node, offset, block.parentNode, self._root ),
-			config = self._config;
-
-		if ( !splitTag ) {
-			splitTag = config.blockTag;
-		}
+		let splitTag = tagAfterSplit[ block.nodeName ] || self._config.blockTag,
+			nodeAfterSplit = split( node, offset, block.parentNode, self._root );
 
 		// Make sure the new node is the correct type.
-		if ( !hasTagAttributes( nodeAfterSplit, splitTag, {} ) ) {
+		if ( !hasTagAttributes( nodeAfterSplit, splitTag ) ) {
 			block = createElement( splitTag );
 			if ( nodeAfterSplit.dir ) {
 				block.dir = nodeAfterSplit.dir;
@@ -1899,53 +1855,10 @@ const
 	escapeHTML = text => text.replace( '&', '&amp;' )
 	   .replace( '<', '&lt;' )
 	   .replace( '>', '&gt;' )
-	   .replace( '"', '&quot;' ),
-
-	removeFormatting = ( self, root, clean ) => {
-		let node, next;
-		for ( node = root.firstChild; node; node = next ) {
-			next = node.nextSibling;
-			if ( isInline( node ) ) {
-				if ( node.nodeType === TEXT_NODE || node.nodeName === 'BR' || node.nodeName === 'IMG' ) {
-					clean.append( node );
-					continue;
-				}
-			} else if ( isBlock( node ) ) {
-				clean.append( self.createDefaultBlock([
-					removeFormatting(
-						self, node, doc.createDocumentFragment() )
-				]));
-				continue;
-			}
-			removeFormatting( self, node, clean );
-		}
-		return clean;
-	};
+	   .replace( '"', '&quot;' );
 
 let contentWalker,
 	nodeCategoryCache = new WeakMap();
-
-// Previous node in post-order.
-TreeWalker.prototype.previousPONode = function () {
-	let current = this.currentNode,
-		root = this.root,
-		nodeType = this.nodeType,
-		filter = this.filter,
-		node;
-	while ( current ) {
-		node = current.lastChild;
-		while ( !node && current && current !== root) {
-			node = current.previousSibling;
-			if ( !node ) { current = current.parentNode; }
-		}
-		if ( node && ( typeToBitArray[ node.nodeType ] & nodeType ) && filter( node ) ) {
-			this.currentNode = node;
-			return node;
-		}
-		current = node;
-	}
-	return null;
-};
 
 function onKey ( event ) {
 	if ( event.defaultPrevented ) {
@@ -1962,11 +1875,6 @@ function onKey ( event ) {
 		if ( event.altKey  ) { modifiers += 'alt-'; }
 		if ( event[osKey] ) { modifiers += ctrlKey; }
 		if ( event.shiftKey ) { modifiers += 'shift-'; }
-	}
-	// However, on Windows, shift-delete is apparently "cut" (WTF right?), so
-	// we want to let the browser handle shift-delete in this situation.
-	if ( isWin && event.shiftKey && key === 'delete' ) {
-		modifiers += 'shift-';
 	}
 
 	key = modifiers + key;
@@ -2003,7 +1911,7 @@ function onCut ( event ) {
 	this.saveUndoState( range );
 
 	// Edge only seems to support setting plain text as of 2016-03-11.
-	if ( !isEdge && event.clipboardData ) {
+	if ( event.clipboardData ) {
 		// Clipboard content should include all parents within block, or all
 		// parents up to root if selection across blocks
 		startBlock = getStartBlockOfRange( range, root );
@@ -2040,7 +1948,7 @@ function onCut ( event ) {
 
 function onCopy ( event ) {
 	// Edge only seems to support setting plain text as of 2016-03-11.
-	if ( !isEdge && event.clipboardData ) {
+	if ( event.clipboardData ) {
 		let range = this.getSelection(), root = this._root,
 			// Clipboard content should include all parents within block, or all
 			// parents up to root if selection across blocks
@@ -2071,31 +1979,20 @@ function onCopy ( event ) {
 	}
 }
 
-// Need to monitor for shift key like this, as event.shiftKey is not available
-// in paste event.
-function monitorShiftKey ( event ) {
-	this.isShiftDown = event.shiftKey;
-}
-
 function onPaste ( event ) {
 	let clipboardData = event.clipboardData;
-	let items = clipboardData && clipboardData.items;
-	let choosePlain = this.isShiftDown;
-	let fireDrop = false;
-	let hasRTF = false;
-	let hasImage = false;
+	let items = clipboardData?.items;
+	let imageItem = null;
 	let plainItem = null;
 	let htmlItem = null;
 	let self = this;
-	let l, item, type, types, data;
+	let type;
 
 	// Current HTML5 Clipboard interface
 	// ---------------------------------
 	// https://html.spec.whatwg.org/multipage/interaction.html
 	if ( items ) {
-		l = items.length;
-		while ( l-- ) {
-			item = items[l];
+		[...items].forEach(item => {
 			type = item.type;
 			if ( type === 'text/html' ) {
 				htmlItem = item;
@@ -2104,78 +2001,23 @@ function onPaste ( event ) {
 			// plain text.
 			} else if ( type === 'text/plain' || type === 'text/uri-list' ) {
 				plainItem = item;
-			} else if ( type === 'text/rtf' ) {
-				hasRTF = true;
-			} else if ( /^image\/.*/.test( type ) ) {
-				hasImage = true;
+			} else if ( item.kind === 'file' && /^image\/(png|jpeg|webp)/.test( type ) ) {
+				imageItem = item;
 			}
-		}
-
-		// Treat image paste as a drop of an image file. When you copy
-		// an image in Chrome/Firefox (at least), it copies the image data
-		// but also an HTML version (referencing the original URL of the image)
-		// and a plain text version.
-		//
-		// However, when you copy in Excel, you get html, rtf, text, image;
-		// in this instance you want the html version! So let's try using
-		// the presence of text/rtf as an indicator to choose the html version
-		// over the image.
-		if ( hasImage && !( hasRTF && htmlItem ) ) {
+		});
+		if (htmlItem || plainItem || imageItem) {
 			event.preventDefault();
-			this.fireEvent( 'dragover', {
-				dataTransfer: clipboardData,
-				/*jshint loopfunc: true */
-				preventDefault: () => fireDrop = true
-				/*jshint loopfunc: false */
-			});
-			if ( fireDrop ) {
-				this.fireEvent( 'drop', {
-					dataTransfer: clipboardData
-				});
-			}
-			return;
-		}
-
-		// Edge only provides access to plain text as of 2016-03-11 and gives no
-		// indication there should be an HTML part. However, it does support
-		// access to image data, so we check for that first. Otherwise though,
-		// fall through to fallback clipboard handling methods
-		if ( !isEdge ) {
-			event.preventDefault();
-			if ( htmlItem && ( !choosePlain || !plainItem ) ) {
+			if ( htmlItem && ( !self.isShiftDown || !plainItem ) ) {
 				htmlItem.getAsString( html => self.insertHTML( html, true ) );
 			} else if ( plainItem ) {
 				plainItem.getAsString( text => self.insertPlainText( text, true ) );
+			} else if ( imageItem ) {
+				let reader = new FileReader();
+				reader.onload = event =>
+					self.insertHTML( '<img src="'+event.target.result+'">', true );
+				reader.readAsDataURL(imageItem.getAsFile());
 			}
-			return;
 		}
-	}
-
-	// Safari (and indeed many other OS X apps) copies stuff as text/rtf
-	// rather than text/html; even from a webpage in Safari. The only way
-	// to get an HTML version is to fallback to letting the browser insert
-	// the content. Same for getting image data. *Sigh*.
-	types = clipboardData && clipboardData.types;
-	if ( !isEdge && types && (
-			indexOf( types, 'text/html' ) > -1 || (
-				!isGecko &&
-				indexOf( types, 'text/plain' ) > -1 &&
-				indexOf( types, 'text/rtf' ) < 0 )
-			)) {
-		event.preventDefault();
-		// Abiword on Linux copies a plain text and html version, but the HTML
-		// version is the empty string! So always try to get HTML, but if none,
-		// insert plain text instead. On iOS, Facebook (and possibly other
-		// apps?) copy links as type text/uri-list, but also insert a **blank**
-		// text/plain item onto the clipboard. Why? Who knows.
-		if ( !choosePlain && ( data = clipboardData.getData( 'text/html' ) ) ) {
-			this.insertHTML( data, true );
-		} else if (
-				( data = clipboardData.getData( 'text/plain' ) ) ||
-				( data = clipboardData.getData( 'text/uri-list' ) ) ) {
-			this.insertPlainText( data, true );
-		}
-		return;
 	}
 }
 
@@ -2184,22 +2026,7 @@ function onPaste ( event ) {
 // save an undo state and hope for the best.
 function onDrop ( event ) {
 	let types = event.dataTransfer.types;
-	let l = types.length;
-	let hasPlain = false;
-	let hasHTML = false;
-	while ( l-- ) {
-		switch ( types[l] ) {
-		case 'text/plain':
-			hasPlain = true;
-			break;
-		case 'text/html':
-			hasHTML = true;
-			break;
-		default:
-			return;
-		}
-	}
-	if ( hasHTML || hasPlain ) {
+	if ( types.includes('text/plain') || types.includes('text/html') ) {
 		this.saveUndoState();
 	}
 }
@@ -2314,34 +2141,31 @@ let keyHandlers = {
 		// If at end of block, merge next into this block
 		else if ( rangeDoesEndAtBlockBoundary( range, root ) ) {
 			event.preventDefault();
-			current = getStartBlockOfRange( range, root );
-			if ( !current ) {
-				return;
-			}
-			// In case inline data has somehow got between blocks.
-			fixContainer( current.parentNode, root );
-			// Now get next block
-			next = getNextBlock( current, root );
-			// Must not be at the very end of the text area.
-			if ( next ) {
-				// If not editable, just delete whole block.
-				if ( !next.isContentEditable ) {
-					detachUneditableNode( next, root );
-					return;
+			if ( current = getStartBlockOfRange( range, root ) ) {
+				// In case inline data has somehow got between blocks.
+				fixContainer( current.parentNode, root );
+				// Now get next block
+				// Must not be at the very end of the text area.
+				if ( next = getNextBlock( current, root ) ) {
+					// If not editable, just delete whole block.
+					if ( !next.isContentEditable ) {
+						detachUneditableNode( next, root );
+						return;
+					}
+					// Otherwise merge.
+					mergeWithBlock( current, next, range, root );
+					// If deleted line between containers, merge newly adjacent
+					// containers.
+					next = current.parentNode;
+					while ( next !== root && !next.nextSibling ) {
+						next = next.parentNode;
+					}
+					if ( next !== root && ( next = next.nextSibling ) ) {
+						mergeContainers( next, root );
+					}
+					self.setSelection( range );
+					self._updatePath( range, true );
 				}
-				// Otherwise merge.
-				mergeWithBlock( current, next, range, root );
-				// If deleted line between containers, merge newly adjacent
-				// containers.
-				next = current.parentNode;
-				while ( next !== root && !next.nextSibling ) {
-					next = next.parentNode;
-				}
-				if ( next !== root && ( next = next.nextSibling ) ) {
-					mergeContainers( next, root );
-				}
-				self.setSelection( range );
-				self._updatePath( range, true );
 			}
 		}
 		// Otherwise, leave to browser but check afterwards whether it has
@@ -2356,7 +2180,7 @@ let keyHandlers = {
 			cursorOffset = range.endOffset;
 			if ( cursorContainer.nodeType === ELEMENT_NODE ) {
 				nodeAfterCursor = cursorContainer.childNodes[ cursorOffset ];
-				if ( nodeAfterCursor && nodeAfterCursor.nodeName === 'IMG' ) {
+				if ( nodeAfterCursor?.nodeName === 'IMG' ) {
 					event.preventDefault();
 					detach( nodeAfterCursor );
 					moveRangeBoundariesDownTree( range );
@@ -2403,18 +2227,18 @@ let keyHandlers = {
 		}
 	},
 	space: ( self, _, range ) => {
-		let node;
 		let root = self._root;
-		self._recordUndoState( range );
+		self._recordUndoState( range, false );
 		if ( self._config.addLinks ) {
 			addLinks( range.startContainer, root, self );
 		}
 		self._getRangeAndRemoveBookmark( range );
-
+/*
 		// If the cursor is at the end of a link (<a>foo|</a>) then move it
 		// outside of the link (<a>foo</a>|) so that the space is not part of
 		// the link text.
-		node = range.endContainer;
+		// SnappyMail: disabled as it fails in Firefox
+		let node = range.endContainer;
 		if ( range.collapsed && range.endOffset === getLength( node ) ) {
 			do {
 				if ( node.nodeName === 'A' ) {
@@ -2424,6 +2248,7 @@ let keyHandlers = {
 			} while ( !node.nextSibling &&
 				( node = node.parentNode ) && node !== root );
 		}
+*/
 		// Delete the selection if not collapsed
 		if ( !range.collapsed ) {
 			deleteContentsOfRange( range, root );
@@ -2470,6 +2295,123 @@ keyHandlers[ ctrlKey + 'z' ] = mapKeyTo( 'undo' );
 keyHandlers[ 'undo' ] = mapKeyTo( 'undo' );
 keyHandlers[ ctrlKey + 'shift-z' ] = mapKeyTo( 'redo' );
 
+class EditStack extends Array
+{
+	constructor(squire) {
+		super();
+		this.squire = squire;
+		this.index = -1;
+		this.inUndoState = false;
+
+		this.threshold = -1; // -1 means no threshold
+		this.limit = -1; // -1 means no limit
+	}
+
+	clear() {
+		this.index = -1;
+		this.length = 0;
+	}
+
+	stateChanged ( /*canUndo, canRedo*/ ) {
+		this.squire.fireEvent( 'undoStateChange', {
+			canUndo: this.index > 0,
+			canRedo: this.index + 1 < this.length
+		});
+		this.squire.fireEvent( 'input' );
+	}
+
+	docWasChanged () {
+		if ( this.inUndoState ) {
+			this.inUndoState = false;
+			this.stateChanged ( /*true, false*/ );
+		} else
+			this.squire.fireEvent( 'input' );
+	}
+
+	// Leaves bookmark
+	recordUndoState ( range, replace ) {
+		replace = replace !== false && this.inUndoState;
+		// Don't record if we're already in an undo state
+		if ( !this.inUndoState || replace ) {
+			// Advance pointer to new position
+			let undoIndex = this.index;
+			let undoThreshold = this.threshold;
+			let undoLimit = this.limit;
+			let squire = this.squire;
+			let html;
+
+			if ( !replace ) {
+				++undoIndex;
+			}
+			undoIndex = Math.max(0, undoIndex);
+
+			// Truncate stack if longer (i.e. if has been previously undone)
+			this.length = Math.min(undoIndex + 1, this.length);
+
+			// Get data
+			if ( range ) {
+				squire._saveRangeToBookmark( range );
+			}
+			html = squire._getHTML();
+
+			// If this document is above the configured size threshold,
+			// limit the number of saved undo states.
+			// Threshold is in bytes, JS uses 2 bytes per character
+			if ( undoThreshold > -1 && html.length * 2 > undoThreshold
+			 && undoLimit > -1 && undoIndex > undoLimit ) {
+				this.splice( 0, undoIndex - undoLimit );
+			}
+
+			// Save data
+			this[ undoIndex ] = html;
+			this.index = undoIndex;
+			this.inUndoState = true;
+		}
+	}
+
+	saveUndoState ( range ) {
+		let squire = this.squire;
+		if ( range === undefined ) {
+			range = squire.getSelection();
+		}
+		this.recordUndoState( range );
+		squire._getRangeAndRemoveBookmark( range );
+	}
+
+	undo () {
+		let squire = this.squire,
+			undoIndex = this.index - 1;
+		// Sanity check: must not be at beginning of the history stack
+		if ( undoIndex >= 0 || !this.inUndoState ) {
+			// Make sure any changes since last checkpoint are saved.
+			this.recordUndoState( squire.getSelection(), false );
+			this.index = undoIndex;
+			squire._setHTML( this[ undoIndex ] );
+			let range = squire._getRangeAndRemoveBookmark();
+			if ( range ) {
+				squire.setSelection( range );
+			}
+			this.inUndoState = true;
+			this.stateChanged ( /*undoIndex > 0, true*/ );
+		}
+	}
+
+	redo () {
+		// Sanity check: must not be at end of stack and must be in an undo state.
+		let squire = this.squire,
+			undoIndex = this.index + 1;
+		if ( undoIndex < this.length && this.inUndoState ) {
+			this.index = undoIndex;
+			squire._setHTML( this[ undoIndex ] );
+			let range = squire._getRangeAndRemoveBookmark();
+			if ( range ) {
+				squire.setSelection( range );
+			}
+			this.stateChanged ( /*true, undoIndex + 1 < this.length*/ );
+		}
+	}
+}
+
 class Squire
 {
 	constructor (root, config) {
@@ -2501,10 +2443,7 @@ class Squire
 		};
 		this.addEventListener('selectstart', () => this.addEventListener('selectionchange', selectionchange));
 
-		this._undoIndex = -1;
-		this._undoStack = [];
-		this._undoStackLength = 0;
-		this._isInUndoState = false;
+		this.editStack = new EditStack(this);
 		this._ignoreChange = false;
 		this._ignoreAllChanges = false;
 
@@ -2526,7 +2465,8 @@ class Squire
 			.addEventListener( 'focus', () => this._restoreSelection && this.setSelection( this._lastRange ) )
 			.addEventListener( 'cut', onCut )
 			.addEventListener( 'copy', onCopy )
-			.addEventListener( 'keydown keyup', monitorShiftKey )
+			// Need to monitor for shift key like this, as event.shiftKey is not available in paste event.
+			.addEventListener( 'keydown keyup', event => this.isShiftDown = event.shiftKey )
 			.addEventListener( 'paste', onPaste )
 			.addEventListener( 'drop', onDrop )
 			.addEventListener( 'keydown', onKey )
@@ -2558,10 +2498,6 @@ class Squire
 	setConfig ( config ) {
 		config = mergeObjects({
 			blockTag: 'DIV',
-			undo: {
-				documentSizeThreshold: -1, // -1 means no threshold
-				undoLimit: -1 // -1 means no limit
-			},
 			addLinks: true
 		}, config, true );
 
@@ -2587,30 +2523,6 @@ class Squire
 
 	getRoot () {
 		return this._root;
-	}
-
-	modifyDocument ( modificationCallback ) {
-		let mutation = this._mutation;
-		if ( mutation ) {
-			if ( mutation.takeRecords().length ) {
-				this._docWasChanged();
-			}
-			mutation.disconnect();
-		}
-
-		this._ignoreAllChanges = true;
-		modificationCallback();
-		this._ignoreAllChanges = false;
-
-		if ( mutation ) {
-			mutation.observe( this._root, {
-				childList: true,
-				attributes: true,
-				characterData: true,
-				subtree: true
-			});
-			this._ignoreChange = false;
-		}
 	}
 
 	// --- Events ---
@@ -2663,32 +2575,12 @@ class Squire
 		return this;
 	}
 
-	destroy () {
-		let events = this._events;
-		let type;
-
-		for ( type in events ) {
-			this.removeEventListener( type );
-		}
-		if ( this._mutation ) {
-			this._mutation.disconnect();
-		}
-		delete this._root.__squire__;
-
-		// Destroy undo stack
-		this._undoIndex = -1;
-		this._undoStack = [];
-		this._undoStackLength = 0;
-	}
-
 	handleEvent ( event ) {
 		this.fireEvent( event.type, event );
 	}
 
 	addEventListener ( type, fn ) {
 		type.split(/\s+/).forEach(type=>{
-			let handlers = this._events[ type ],
-				target = this._root;
 			if ( !fn ) {
 				didError({
 					name: 'Squire: addEventListener with null or undefined fn',
@@ -2696,14 +2588,12 @@ class Squire
 				});
 				return this;
 			}
+			let handlers = this._events[ type ];
 			if ( !handlers ) {
 				handlers = this._events[ type ] = [];
-				if ( !customEvents[ type ] ) {
-					if ( type === 'selectionchange' ) {
-						target = doc;
-					}
-					target.addEventListener( type, this, {capture:true,passive:'touchstart'===type} );
-				}
+				customEvents[ type ]
+				|| ( type === 'selectionchange' ? doc : this._root )
+					.addEventListener( type, this, {capture:true,passive:'touchstart'===type} );
 			}
 			handlers.push( fn );
 		});
@@ -2712,7 +2602,6 @@ class Squire
 
 	removeEventListener ( type, fn ) {
 		let handlers = this._events[ type ];
-		let target = this._root;
 		let l;
 		if ( handlers ) {
 			if ( fn ) {
@@ -2727,12 +2616,9 @@ class Squire
 			}
 			if ( !handlers.length ) {
 				delete this._events[ type ];
-				if ( !customEvents[ type ] ) {
-					if ( type === 'selectionchange' ) {
-						target = doc;
-					}
-					target.removeEventListener( type, this, true );
-				}
+				customEvents[ type ]
+				|| ( type === 'selectionchange' ? doc : this._root)
+					.removeEventListener( type, this, true );
 			}
 		}
 		return this;
@@ -2740,35 +2626,12 @@ class Squire
 
 	// --- Selection and Path ---
 
-	getCursorPosition ( range ) {
-		if ( ( !range && !( range = this.getSelection() ) ) ||
-				!range.getBoundingClientRect ) {
-			return null;
-		}
-		// Get the bounding rect
-		let rect = range.getBoundingClientRect();
-		let node, parent;
-		if ( rect && !rect.top ) {
-			this._ignoreChange = true;
-			node = createElement( 'SPAN' );
-			node.textContent = ZWS;
-			insertNodeInRange( range, node );
-			rect = node.getBoundingClientRect();
-			parent = node.parentNode;
-			node.remove(  );
-			mergeInlines( parent, range );
-		}
-		return rect;
-	}
-
 	setSelection ( range ) {
 		if ( range ) {
 			this._lastRange = range;
 			// If we're setting selection, that automatically, and synchronously, // triggers a focus event. So just store the selection and mark it as
 			// needing restore on focus.
-			if ( !this._isFocused ) {
-				this._restoreSelection = true;
-			} else {
+			if ( this._isFocused ) {
 				// iOS bug: if you don't focus the iframe before setting the
 				// selection, you can end up in a state where you type but the input
 				// doesn't get directed into the contenteditable area but is instead
@@ -2777,7 +2640,7 @@ class Squire
 					win.focus();
 				}
 				let sel = win.getSelection();
-				if ( sel && sel.setBaseAndExtent ) {
+				if ( sel?.setBaseAndExtent ) {
 					sel.setBaseAndExtent(
 						range.startContainer,
 						range.startOffset,
@@ -2789,6 +2652,8 @@ class Squire
 					sel.removeAllRanges();
 					sel.addRange( range );
 				}
+			} else {
+				this._restoreSelection = true;
 			}
 		}
 		return this;
@@ -2797,10 +2662,10 @@ class Squire
 	getSelection () {
 		let sel = win.getSelection();
 		let root = this._root;
-		let range, startContainer, endContainer, node;
+		let range, startContainer, endContainer;
 		// If not focused, always rely on cached range; another function may
 		// have set it but the DOM is not modified until focus again
-		if ( this._isFocused && sel && sel.rangeCount ) {
+		if ( this._isFocused && sel?.rangeCount ) {
 			range = sel.getRangeAt( 0 ).cloneRange();
 			startContainer = range.startContainer;
 			endContainer = range.endContainer;
@@ -2816,10 +2681,9 @@ class Squire
 			this._lastRange = range;
 		} else {
 			range = this._lastRange;
-			node = range.commonAncestorContainer;
 			// Check the editor is in the live document; if not, the range has
 			// probably been rewritten by the browser and is bogus
-			if ( !doc.contains( node ) ) {
+			if ( !doc.contains( range.commonAncestorContainer ) ) {
 				range = null;
 			}
 		}
@@ -2831,62 +2695,6 @@ class Squire
 		return range && getClosest(range.commonAncestorContainer, this._root, selector);
 	}
 
-	selectionContains (selector) {
-		let range = this.getSelection(),
-			node = range && range.commonAncestorContainer;
-		if (node && !range.collapsed) {
-			node = node.querySelector ? node : node.parentElement;
-			// TODO: isNodeContainedInRange( range, node ) for real selection match?
-			return !!(node && node.querySelector(selector));
-		}
-		return false;
-	}
-
-	getSelectedText () {
-		let range = this.getSelection();
-		if ( !range || range.collapsed ) {
-			return '';
-		}
-		let walker = createTreeWalker(
-			range.commonAncestorContainer,
-			SHOW_TEXT|SHOW_ELEMENT,
-			node => isNodeContainedInRange( range, node )
-		);
-		let startContainer = range.startContainer;
-		let endContainer = range.endContainer;
-		let node = walker.currentNode = startContainer;
-		let textContent = '';
-		let addedTextInBlock = false;
-		let value;
-
-		if ( filterAccept != walker.filter.acceptNode( node ) ) {
-			node = walker.nextNode();
-		}
-
-		while ( node ) {
-			if ( node.nodeType === TEXT_NODE ) {
-				value = node.data;
-				if ( value && ( /\S/.test( value ) ) ) {
-					if ( node === endContainer ) {
-						value = value.slice( 0, range.endOffset );
-					}
-					if ( node === startContainer ) {
-						value = value.slice( range.startOffset );
-					}
-					textContent += value;
-					addedTextInBlock = true;
-				}
-			} else if ( node.nodeName === 'BR' ||
-					addedTextInBlock && !isInline( node ) ) {
-				textContent += '\n';
-				addedTextInBlock = false;
-			}
-			node = walker.nextNode();
-		}
-
-		return textContent;
-	}
-
 	getPath () {
 		return this._path;
 	}
@@ -2896,11 +2704,8 @@ class Squire
 	// WebKit bug: https://bugs.webkit.org/show_bug.cgi?id=15256
 
 	_addZWS () {
-		if ( isWebKit ) {
-			this._hasZWS = true;
-			return doc.createTextNode( ZWS );
-		}
-		return doc.createTextNode( '' );
+		this._hasZWS = isWebKit;
+		return doc.createTextNode( isWebKit ? ZWS : '' );
 	}
 	_removeZWS () {
 		if ( this._hasZWS ) {
@@ -2912,26 +2717,25 @@ class Squire
 	// --- Path change events ---
 
 	_updatePath ( range, force ) {
-		if ( !range ) {
-			return;
-		}
-		let anchor = range.startContainer,
-			focus = range.endContainer,
-			newPath;
-		if ( force || anchor !== this._lastAnchorNode ||
-				focus !== this._lastFocusNode ) {
-			this._lastAnchorNode = anchor;
-			this._lastFocusNode = focus;
-			newPath = ( anchor && focus ) ? ( anchor === focus ) ?
-				getPath( focus, this._root, this._config ) : '(selection)' : '';
-			if ( this._path !== newPath ) {
-				this._path = newPath;
-				this.fireEvent( 'pathChange', { path: newPath } );
+		if ( range ) {
+			let anchor = range.startContainer,
+				focus = range.endContainer,
+				newPath;
+			if ( force || anchor !== this._lastAnchorNode ||
+					focus !== this._lastFocusNode ) {
+				this._lastAnchorNode = anchor;
+				this._lastFocusNode = focus;
+				newPath = ( anchor && focus ) ? ( anchor === focus ?
+					getPath( focus, this._root, this._config ) : '(selection)' ) : '';
+				if ( this._path !== newPath ) {
+					this._path = newPath;
+					this.fireEvent( 'pathChange', { path: newPath } );
+				}
 			}
+			this.fireEvent( range.collapsed ? 'cursor' : 'select', {
+				range: range
+			});
 		}
-		this.fireEvent( range.collapsed ? 'cursor' : 'select', {
-			range: range
-		});
 	}
 
 	// --- Focus ---
@@ -3010,7 +2814,7 @@ class Squire
 						endContainer =
 							startContainer.childNodes[ range.startOffset - 1 ];
 					}
-					if ( endContainer && endContainer.nodeType === TEXT_NODE ) {
+					if ( endContainer?.nodeType === TEXT_NODE ) {
 						range.setStart( endContainer, 0 );
 						range.collapse( true );
 					}
@@ -3024,121 +2828,29 @@ class Squire
 
 	_docWasChanged () {
 		nodeCategoryCache = new WeakMap();
-		if ( this._ignoreAllChanges ) {
-			return;
+		if ( !this._ignoreAllChanges ) {
+			if ( this._ignoreChange ) {
+				this._ignoreChange = false;
+			} else {
+				this.editStack.docWasChanged();
+			}
 		}
-
-		if ( this._ignoreChange ) {
-			this._ignoreChange = false;
-			return;
-		}
-		if ( this._isInUndoState ) {
-			this._isInUndoState = false;
-			this.fireEvent( 'undoStateChange', {
-				canUndo: true,
-				canRedo: false
-			});
-		}
-		this.fireEvent( 'input' );
 	}
 
-	// Leaves bookmark
 	_recordUndoState ( range, replace ) {
-		// Don't record if we're already in an undo state
-		if ( !this._isInUndoState|| replace ) {
-			// Advance pointer to new position
-			let undoIndex = this._undoIndex;
-			let undoStack = this._undoStack;
-			let undoConfig = this._config.undo;
-			let undoThreshold = undoConfig.documentSizeThreshold;
-			let undoLimit = undoConfig.undoLimit;
-			let html;
-
-			if ( !replace ) {
-				++undoIndex;
-			}
-
-			// Truncate stack if longer (i.e. if has been previously undone)
-			if ( undoIndex < this._undoStackLength ) {
-				undoStack.length = this._undoStackLength = undoIndex;
-			}
-
-			// Get data
-			if ( range ) {
-				this._saveRangeToBookmark( range );
-			}
-			html = this._getHTML();
-
-			// If this document is above the configured size threshold,
-			// limit the number of saved undo states.
-			// Threshold is in bytes, JS uses 2 bytes per character
-			if ( undoThreshold > -1 && html.length * 2 > undoThreshold ) {
-				if ( undoLimit > -1 && undoIndex > undoLimit ) {
-					undoStack.splice( 0, undoIndex - undoLimit );
-					undoIndex = undoLimit;
-					this._undoStackLength = undoLimit;
-				}
-			}
-
-			// Save data
-			undoStack[ undoIndex ] = html;
-			this._undoIndex = undoIndex;
-			++this._undoStackLength;
-			this._isInUndoState = true;
-		}
+		this.editStack.recordUndoState( range, replace );
 	}
 
 	saveUndoState ( range ) {
-		if ( range === undefined ) {
-			range = this.getSelection();
-		}
-		this._recordUndoState( range, this._isInUndoState );
-		this._getRangeAndRemoveBookmark( range );
-
-		return this;
+		this.editStack.saveUndoState( range );
 	}
 
 	undo () {
-		// Sanity check: must not be at beginning of the history stack
-		if ( this._undoIndex !== 0 || !this._isInUndoState ) {
-			// Make sure any changes since last checkpoint are saved.
-			this._recordUndoState( this.getSelection(), false );
-
-			--this._undoIndex;
-			this._setHTML( this._undoStack[ this._undoIndex ] );
-			let range = this._getRangeAndRemoveBookmark();
-			if ( range ) {
-				this.setSelection( range );
-			}
-			this._isInUndoState = true;
-			this.fireEvent( 'undoStateChange', {
-				canUndo: this._undoIndex !== 0,
-				canRedo: true
-			});
-			this.fireEvent( 'input' );
-		}
-		return this;
+		this.editStack.undo();
 	}
 
 	redo () {
-		// Sanity check: must not be at end of stack and must be in an undo
-		// state.
-		let undoIndex = this._undoIndex,
-			undoStackLength = this._undoStackLength;
-		if ( undoIndex + 1 < undoStackLength && this._isInUndoState ) {
-			++this._undoIndex;
-			this._setHTML( this._undoStack[ this._undoIndex ] );
-			let range = this._getRangeAndRemoveBookmark();
-			if ( range ) {
-				this.setSelection( range );
-			}
-			this.fireEvent( 'undoStateChange', {
-				canUndo: true,
-				canRedo: undoIndex + 2 < undoStackLength
-			});
-			this.fireEvent( 'input' );
-		}
-		return this;
+		this.editStack.redo();
 	}
 
 	// --- Inline formatting ---
@@ -3148,7 +2860,6 @@ class Squire
 	hasFormat ( tag, attributes, range ) {
 		// 1. Normalise the arguments and get selection
 		tag = tag.toUpperCase();
-		if ( !attributes ) { attributes = {}; }
 		if ( !range && !( range = this.getSelection() ) ) {
 			return false;
 		}
@@ -3249,7 +2960,7 @@ class Squire
 		// it round the range and focus it.
 		let root = this._root;
 		let el, walker, startContainer, endContainer, startOffset, endOffset,
-			node, needsFormat, block;
+			node, block;
 
 		if ( range.collapsed ) {
 			el = fixCursor( createElement( tag, attributes ), root );
@@ -3282,7 +2993,7 @@ class Squire
 			// them, and adding other styles is harmless.
 			walker = createTreeWalker(
 				range.commonAncestorContainer,
-				SHOW_TEXT|SHOW_ELEMENT,
+				SHOW_ELEMENT_OR_TEXT,
 				node => ( node.nodeType === TEXT_NODE ||
 							node.nodeName === 'BR' ||
 							node.nodeName === 'IMG'
@@ -3303,51 +3014,48 @@ class Squire
 				startOffset = 0;
 			}
 
-			// If there are no interesting nodes in the selection, abort
-			if ( !startContainer ) {
-				return range;
-			}
-
-			do {
-				node = walker.currentNode;
-				needsFormat = !getNearest( node, root, tag, attributes );
-				if ( needsFormat ) {
-					// <br> can never be a container node, so must have a text node
-					// if node == (end|start)Container
-					if ( node === endContainer && node.length > endOffset ) {
-						node.splitText( endOffset );
-					}
-					if ( node === startContainer && startOffset ) {
-						node = node.splitText( startOffset );
-						if ( endContainer === startContainer ) {
-							endContainer = node;
-							endOffset -= startOffset;
+			// If there are interesting nodes in the selection
+			if ( startContainer ) {
+				do {
+					node = walker.currentNode;
+					if ( !getNearest( node, root, tag, attributes ) ) {
+						// <br> can never be a container node, so must have a text node
+						// if node == (end|start)Container
+						if ( node === endContainer && node.length > endOffset ) {
+							node.splitText( endOffset );
 						}
-						startContainer = node;
-						startOffset = 0;
+						if ( node === startContainer && startOffset ) {
+							node = node.splitText( startOffset );
+							if ( endContainer === startContainer ) {
+								endContainer = node;
+								endOffset -= startOffset;
+							}
+							startContainer = node;
+							startOffset = 0;
+						}
+						el = createElement( tag, attributes );
+						node.replaceWith( el );
+						el.append( node );
 					}
-					el = createElement( tag, attributes );
-					node.replaceWith( el );
-					el.append( node );
-				}
-			} while ( walker.nextNode() );
+				} while ( walker.nextNode() );
 
-			// If we don't finish inside a text node, offset may have changed.
-			if ( endContainer.nodeType !== TEXT_NODE ) {
-				if ( node.nodeType === TEXT_NODE ) {
-					endContainer = node;
-					endOffset = node.length;
-				} else {
-					// If <br>, we must have just wrapped it, so it must have only
-					// one child
-					endContainer = node.parentNode;
-					endOffset = 1;
+				// If we don't finish inside a text node, offset may have changed.
+				if ( endContainer.nodeType !== TEXT_NODE ) {
+					if ( node.nodeType === TEXT_NODE ) {
+						endContainer = node;
+						endOffset = node.length;
+					} else {
+						// If <br>, we must have just wrapped it, so it must have only
+						// one child
+						endContainer = node.parentNode;
+						endOffset = 1;
+					}
 				}
+
+				// Now set the selection to as it was before
+				range = createRange(
+					startContainer, startOffset, endContainer, endOffset );
 			}
-
-			// Now set the selection to as it was before
-			range = createRange(
-				startContainer, startOffset, endContainer, endOffset );
 		}
 		return range;
 	}
@@ -3423,15 +3131,11 @@ class Squire
 				el => isNodeContainedInRange( range, el ) && hasTagAttributes( el, tag, attributes )
 			);
 
-		if ( !partial ) {
-			formatTags.forEach( node => examineNode( node, node ) );
-		}
+		partial || formatTags.forEach( node => examineNode( node, node ) );
 
 		// Now wrap unselected nodes in the tag
-		toWrap.forEach( item => {
-			// [ exemplar, node ] tuple
-			let el = item[0].cloneNode( false ),
-				node = item[1];
+		toWrap.forEach( ([exemplar, node]) => {
+			let el = exemplar.cloneNode( false );
 			node.replaceWith( el );
 			el.append( node );
 		});
@@ -3440,9 +3144,7 @@ class Squire
 
 		// Merge adjacent inlines:
 		this._getRangeAndRemoveBookmark( range );
-		if ( fixer ) {
-			range.collapse( false );
-		}
+		fixer && range.collapse( false );
 		mergeInlines( root, range );
 
 		return range;
@@ -3459,205 +3161,172 @@ class Squire
 
 	changeFormat ( add, remove, range, partial ) {
 		// Normalise the arguments and get selection
-		if ( !range && !( range = this.getSelection() ) ) {
-			return this;
+		if ( range || ( range = this.getSelection() ) ) {
+			// Save undo checkpoint
+			this.saveUndoState( range );
+
+			if ( remove ) {
+				range = this._removeFormat( remove.tag.toUpperCase(),
+					remove.attributes || {}, range, partial );
+			}
+
+			if ( add ) {
+				range = this._addFormat( add.tag.toUpperCase(),
+					add.attributes || {}, range );
+			}
+
+			this.setSelection( range );
+			this._updatePath( range, true );
 		}
-
-		// Save undo checkpoint
-		this.saveUndoState( range );
-
-		if ( remove ) {
-			range = this._removeFormat( remove.tag.toUpperCase(),
-				remove.attributes || {}, range, partial );
-		}
-
-		if ( add ) {
-			range = this._addFormat( add.tag.toUpperCase(),
-				add.attributes || {}, range );
-		}
-
-		this.setSelection( range );
-		this._updatePath( range, true );
-
 		return this;
 	}
 
 	// --- Block formatting ---
 
 	forEachBlock ( fn, range ) {
-		if ( !range && !( range = this.getSelection() ) ) {
-			return this;
+		if ( range || ( range = this.getSelection() ) ) {
+			// Save undo checkpoint
+			this.saveUndoState( range );
+
+			let root = this._root;
+			let start = getStartBlockOfRange( range, root );
+			let end = getEndBlockOfRange( range, root );
+			if ( start && end ) {
+				do {
+					if ( fn( start ) || start === end ) { break; }
+				} while ( start = getNextBlock( start, root ) );
+			}
+
+			this.setSelection( range );
+
+			// Path may have changed
+			this._updatePath( range, true );
 		}
-
-		// Save undo checkpoint
-		this.saveUndoState( range );
-
-		let root = this._root;
-		let start = getStartBlockOfRange( range, root );
-		let end = getEndBlockOfRange( range, root );
-		if ( start && end ) {
-			do {
-				if ( fn( start ) || start === end ) { break; }
-			} while ( start = getNextBlock( start, root ) );
-		}
-
-		this.setSelection( range );
-
-		// Path may have changed
-		this._updatePath( range, true );
-
 		return this;
 	}
 
 	modifyBlocks ( modify, range ) {
-		if ( !range && !( range = this.getSelection() ) ) {
-			return this;
+		if ( range || ( range = this.getSelection() ) ) {
+			// 1. Save undo checkpoint and bookmark selection
+			this._recordUndoState( range );
+
+			let root = this._root;
+			let frag;
+
+			// 2. Expand range to block boundaries
+			expandRangeToBlockBoundaries( range, root );
+
+			// 3. Remove range.
+			moveRangeBoundariesUpTree( range, root, root, root );
+			frag = extractContentsOfRange( range, root, root );
+
+			// 4. Modify tree of fragment and reinsert.
+			insertNodeInRange( range, modify.call( this, frag ) );
+
+			// 5. Merge containers at edges
+			if ( range.endOffset < range.endContainer.childNodes.length ) {
+				mergeContainers( range.endContainer.childNodes[ range.endOffset ], root );
+			}
+			mergeContainers( range.startContainer.childNodes[ range.startOffset ], root );
+
+			// 6. Restore selection
+			this._getRangeAndRemoveBookmark( range );
+			this.setSelection( range );
+			this._updatePath( range, true );
 		}
-
-		// 1. Save undo checkpoint and bookmark selection
-		this._recordUndoState( range, this._isInUndoState );
-
-		let root = this._root;
-		let frag;
-
-		// 2. Expand range to block boundaries
-		expandRangeToBlockBoundaries( range, root );
-
-		// 3. Remove range.
-		moveRangeBoundariesUpTree( range, root, root, root );
-		frag = extractContentsOfRange( range, root, root );
-
-		// 4. Modify tree of fragment and reinsert.
-		insertNodeInRange( range, modify.call( this, frag ) );
-
-		// 5. Merge containers at edges
-		if ( range.endOffset < range.endContainer.childNodes.length ) {
-			mergeContainers( range.endContainer.childNodes[ range.endOffset ], root );
-		}
-		mergeContainers( range.startContainer.childNodes[ range.startOffset ], root );
-
-		// 6. Restore selection
-		this._getRangeAndRemoveBookmark( range );
-		this.setSelection( range );
-		this._updatePath( range, true );
-
 		return this;
 	}
 
 	increaseListLevel ( range ) {
-		if ( !range && !( range = this.getSelection() ) ) {
-			return this.focus();
+		if ( range || ( range = this.getSelection() ) ) {
+			let root = this._root;
+			let listSelection = getListSelection( range, root );
+			if ( listSelection ) {
+				let list = listSelection[0];
+				let startLi = listSelection[1];
+				let endLi = listSelection[2];
+				if ( startLi && startLi !== list.firstChild ) {
+					// Save undo checkpoint and bookmark selection
+					this._recordUndoState( range );
+
+					// Increase list depth
+					let type = list.nodeName;
+					let newParent = startLi.previousSibling;
+					let next;
+					if ( newParent.nodeName !== type ) {
+						newParent = createElement( type );
+						startLi.before( newParent );
+					}
+					do {
+						next = startLi === endLi ? null : startLi.nextSibling;
+						newParent.append( startLi );
+					} while ( ( startLi = next ) );
+					next = newParent.nextSibling;
+					next && mergeContainers( next, root );
+
+					// Restore selection
+					this._getRangeAndRemoveBookmark( range );
+					this.setSelection( range );
+					this._updatePath( range, true );
+				}
+			}
 		}
-
-		let root = this._root;
-		let listSelection = getListSelection( range, root );
-		if ( !listSelection ) {
-			return this.focus();
-		}
-
-		let list = listSelection[0];
-		let startLi = listSelection[1];
-		let endLi = listSelection[2];
-		if ( !startLi || startLi === list.firstChild ) {
-			return this.focus();
-		}
-
-		// Save undo checkpoint and bookmark selection
-		this._recordUndoState( range, this._isInUndoState );
-
-		// Increase list depth
-		let type = list.nodeName;
-		let newParent = startLi.previousSibling;
-		let next;
-		if ( newParent.nodeName !== type ) {
-			newParent = createElement( type );
-			startLi.before( newParent );
-		}
-		do {
-			next = startLi === endLi ? null : startLi.nextSibling;
-			newParent.append( startLi );
-		} while ( ( startLi = next ) );
-		next = newParent.nextSibling;
-		if ( next ) {
-			mergeContainers( next, root );
-		}
-
-		// Restore selection
-		this._getRangeAndRemoveBookmark( range );
-		this.setSelection( range );
-		this._updatePath( range, true );
-
 		return this.focus();
 	}
 
 	decreaseListLevel ( range ) {
-		if ( !range && !( range = this.getSelection() ) ) {
-			return this.focus();
-		}
+		if ( range || ( range = this.getSelection() ) ) {
+			let root = this._root;
+			let listSelection = getListSelection( range, root );
+			if ( listSelection ) {
+				let list = listSelection[0];
+				let startLi = listSelection[1] || list.firstChild;
+				let endLi = listSelection[2] || list.lastChild;
+				let newParent, next, insertBefore, makeNotList;
 
-		let root = this._root;
-		let listSelection = getListSelection( range, root );
-		if ( !listSelection ) {
-			return this.focus();
-		}
+				// Save undo checkpoint and bookmark selection
+				this._recordUndoState( range );
 
-		let list = listSelection[0];
-		let startLi = listSelection[1];
-		let endLi = listSelection[2];
-		let newParent, next, insertBefore, makeNotList;
-		if ( !startLi ) {
-			startLi = list.firstChild;
-		}
-		if ( !endLi ) {
-			endLi = list.lastChild;
-		}
+				if ( startLi ) {
+					// Find the new parent list node
+					newParent = list.parentNode;
 
-		// Save undo checkpoint and bookmark selection
-		this._recordUndoState( range, this._isInUndoState );
+					// Split list if necesary
+					insertBefore = !endLi.nextSibling ?
+						list.nextSibling :
+						split( list, endLi.nextSibling, newParent, root );
 
-		if ( startLi ) {
-			// Find the new parent list node
-			newParent = list.parentNode;
+					if ( newParent !== root && newParent.nodeName === 'LI' ) {
+						newParent = newParent.parentNode;
+						while ( insertBefore ) {
+							next = insertBefore.nextSibling;
+							endLi.append( insertBefore );
+							insertBefore = next;
+						}
+						insertBefore = list.parentNode.nextSibling;
+					}
 
-			// Split list if necesary
-			insertBefore = !endLi.nextSibling ?
-				list.nextSibling :
-				split( list, endLi.nextSibling, newParent, root );
-
-			if ( newParent !== root && newParent.nodeName === 'LI' ) {
-				newParent = newParent.parentNode;
-				while ( insertBefore ) {
-					next = insertBefore.nextSibling;
-					endLi.append( insertBefore );
-					insertBefore = next;
+					makeNotList = !/^[OU]L$/.test( newParent.nodeName );
+					do {
+						next = startLi === endLi ? null : startLi.nextSibling;
+						startLi.remove(  );
+						if ( makeNotList && startLi.nodeName === 'LI' ) {
+							startLi = this.createDefaultBlock([ empty( startLi ) ]);
+						}
+						newParent.insertBefore( startLi, insertBefore );
+					} while (( startLi = next ));
 				}
-				insertBefore = list.parentNode.nextSibling;
+
+				list.firstChild || detach( list );
+
+				insertBefore && mergeContainers( insertBefore, root );
+
+				// Restore selection
+				this._getRangeAndRemoveBookmark( range );
+				this.setSelection( range );
+				this._updatePath( range, true );
 			}
-
-			makeNotList = !/^[OU]L$/.test( newParent.nodeName );
-			do {
-				next = startLi === endLi ? null : startLi.nextSibling;
-				startLi.remove(  );
-				if ( makeNotList && startLi.nodeName === 'LI' ) {
-					startLi = this.createDefaultBlock([ empty( startLi ) ]);
-				}
-				newParent.insertBefore( startLi, insertBefore );
-			} while (( startLi = next ));
 		}
-
-		if ( !list.firstChild ) {
-			detach( list );
-		}
-
-		if ( insertBefore ) {
-			mergeContainers( insertBefore, root );
-		}
-
-		// Restore selection
-		this._getRangeAndRemoveBookmark( range );
-		this.setSelection( range );
-		this._updatePath( range, true );
-
 		return this.focus();
 	}
 
@@ -3668,13 +3337,6 @@ class Squire
 				last.nodeName !== this._config.blockTag || !isBlock( last ) ) {
 			root.append( this.createDefaultBlock() );
 		}
-	}
-
-	// --- Keyboard interaction ---
-
-	setKeyHandler ( key, fn ) {
-		this._keyHandlers[ key ] = fn;
-		return this;
 	}
 
 	// --- Get/Set data ---
@@ -3705,9 +3367,7 @@ class Squire
 			this._saveRangeToBookmark( range );
 		}
 		html = this._getHTML().replace( /\u200B/g, '' );
-		if ( range ) {
-			this._getRangeAndRemoveBookmark( range );
-		}
+		range && this._getRangeAndRemoveBookmark( range );
 		return html;
 	}
 
@@ -3751,10 +3411,7 @@ class Squire
 		fixCursor( root, root );
 
 		// Reset the undo stack
-		this._undoIndex = -1;
-		this._undoStack.length = 0;
-		this._undoStackLength = 0;
-		this._isInUndoState = false;
+		this.editStack.clear();
 
 		// Record undo state
 		let range = this._getRangeAndRemoveBookmark() ||
@@ -3881,9 +3538,7 @@ class Squire
 				fixCursor( node, root );
 			}
 
-			if ( isPaste ) {
-				this.fireEvent( 'willPaste', event );
-			}
+			isPaste && this.fireEvent( 'willPaste', event );
 
 			if ( !event.defaultPrevented ) {
 				insertTreeFragmentIntoRange( range, event.fragment, root );
@@ -3900,9 +3555,7 @@ class Squire
 			this.setSelection( range );
 			this._updatePath( range, true );
 			// Safari sometimes loses focus after paste. Weird.
-			if ( isPaste ) {
-				this.focus();
-			}
+			isPaste && this.focus();
 		} catch ( error ) {
 			didError( error );
 		}
@@ -3916,9 +3569,9 @@ class Squire
 			let node = range.startContainer;
 			let offset = range.startOffset;
 			let text, event;
-			if ( !node || node.nodeType !== TEXT_NODE ) {
+			if ( node?.nodeType !== TEXT_NODE ) {
 				text = doc.createTextNode( '' );
-				node && node.childNodes[ offset ].before( text );
+				node?.childNodes[ offset ].before( text );
 				node = text;
 				offset = 0;
 			}
@@ -3929,9 +3582,7 @@ class Squire
 				},
 				defaultPrevented: false
 			};
-			if ( isPaste ) {
-				this.fireEvent( 'willPaste', event );
-			}
+			isPaste && this.fireEvent( 'willPaste', event );
 
 			if ( !event.defaultPrevented ) {
 				plainText = event.text;
@@ -3947,11 +3598,10 @@ class Squire
 		let tag = config.blockTag;
 		let closeBlock  = '</' + tag + '>';
 		let openBlock = '<' + tag + '>';
-		let i, l, line;
+		let i = lines.length, line;
 
-		for ( i = 0, l = lines.length; i < l; ++i ) {
-			line = lines[i];
-			line = escapeHTML( line ).replace( / (?= )/g, '&nbsp;' );
+		while (i--) {
+			line = escapeHTML( lines[i] ).replace( / (?= )/g, '&nbsp;' );
 			// We don't wrap the first line in the block, so if it gets inserted
 			// into a blank line it keeps that line's formatting.
 			// Wrap each line in <div></div>
@@ -3964,18 +3614,6 @@ class Squire
 	}
 
 	// --- Formatting ---
-
-	addStyles ( styles ) {
-		if ( styles ) {
-			let head = doc.documentElement.firstChild,
-				style = createElement( 'STYLE', {
-					type: 'text/css'
-				});
-			style.append( doc.createTextNode( styles ) );
-			head.append( style );
-		}
-		return this;
-	}
 
 	makeLink ( url, attributes ) {
 		let range = this.getSelection();
@@ -4015,10 +3653,10 @@ class Squire
 
 	setStyle ( style ) {
 		let range = this.getSelection();
-		let start = range ? range.startContainer : 0;
+		let start = range?.startContainer || {};
 		let end = range ? range.endContainer : 0;
 		// When the selection is all the text inside an element, set style on the element itself
-		if ( start && TEXT_NODE === start.nodeType && 0 === range.startOffset && start === end && end.length === range.endOffset ) {
+		if ( TEXT_NODE === start?.nodeType && 0 === range.startOffset && start === end && end.length === range.endOffset ) {
 			this.saveUndoState( range );
 			setStyle( start.parentNode, style );
 			this.setSelection( range );
@@ -4036,36 +3674,6 @@ class Squire
 		return this.focus();
 	}
 
-	setTextColor ( color ) {
-		return this.setStyle({
-			color: color
-		});
-	}
-
-	setBackgroundColor ( color ) {
-		return this.setStyle({
-			backgroundColor: color
-		});
-	}
-
-	setTextAlignment ( alignment ) {
-		this.forEachBlock( block => {
-			block.style.textAlign = alignment || '';
-		} );
-		return this.focus();
-	}
-
-	setTextDirection ( direction ) {
-		this.forEachBlock( block => {
-			if ( direction ) {
-				block.dir = direction;
-			} else {
-				block.removeAttribute( 'dir' );
-			}
-		} );
-		return this.focus();
-	}
-
 	// ---
 
 	code () {
@@ -4079,33 +3687,15 @@ class Squire
 				// 1. Extract inline content; drop all blocks and contains.
 				while (( node = walker.nextNode() )) {
 					// 2. Replace <br> with \n in content
-					let nodes = node.querySelectorAll( 'BR' );
-					let brBreaksLine = [];
-					let l = nodes.length;
-					let i, br;
-
-					// Must calculate whether the <br> breaks a line first, because if we
-					// have two <br>s next to each other, after the first one is converted
-					// to a block split, the second will be at the end of a block and
-					// therefore seem to not be a line break. But in its original context it
-					// was, so we should also convert it to a block split.
-					for ( i = 0; i < l; ++i ) {
-						brBreaksLine[i] = isLineBreak( nodes[i], false );
-					}
-					while ( l-- ) {
-						br = nodes[l];
-						if ( !brBreaksLine[l] ) {
+					node.querySelectorAll( 'BR' ).forEach( br => {
+						if ( !isLineBreak( br, false ) ) {
 							detach( br );
 						} else {
 							br.replaceWith( doc.createTextNode( '\n' ) );
 						}
-					}
+					});
 					// 3. Remove <code>; its format clashes with <pre>
-					nodes = node.querySelectorAll( 'CODE' );
-					l = nodes.length;
-					while ( l-- ) {
-						detach( nodes[l] );
-					}
+					node.querySelectorAll( 'CODE' ).forEach( el => detach( el ) );
 					if ( output.childNodes.length ) {
 						output.append( doc.createTextNode( '\n' ) );
 					}
@@ -4179,83 +3769,6 @@ class Squire
 
 	// ---
 
-	removeAllFormatting ( range ) {
-		if ( !range && !( range = this.getSelection() ) || range.collapsed ) {
-			return this;
-		}
-
-		let root = this._root;
-		let stopNode = range.commonAncestorContainer;
-		while ( stopNode && !isBlock( stopNode ) ) {
-			stopNode = stopNode.parentNode;
-		}
-		if ( !stopNode ) {
-			expandRangeToBlockBoundaries( range, root );
-			stopNode = root;
-		}
-		if ( stopNode.nodeType === TEXT_NODE ) {
-			return this;
-		}
-
-		// Record undo point
-		this.saveUndoState( range );
-
-		// Avoid splitting where we're already at edges.
-		moveRangeBoundariesUpTree( range, stopNode, stopNode, root );
-
-		// Split the selection up to the block, or if whole selection in same
-		// block, expand range boundaries to ends of block and split up to root.
-		let startContainer = range.startContainer;
-		let startOffset = range.startOffset;
-		let endContainer = range.endContainer;
-		let endOffset = range.endOffset;
-
-		// Split end point first to avoid problems when end and start
-		// in same container.
-		let formattedNodes = doc.createDocumentFragment();
-		let cleanNodes = doc.createDocumentFragment();
-		let nodeAfterSplit = split( endContainer, endOffset, stopNode, root );
-		let nodeInSplit = split( startContainer, startOffset, stopNode, root );
-		let nextNode, childNodes;
-
-		// Then replace contents in split with a cleaned version of the same:
-		// blocks become default blocks, text and leaf nodes survive, everything
-		// else is obliterated.
-		while ( nodeInSplit !== nodeAfterSplit ) {
-			nextNode = nodeInSplit.nextSibling;
-			formattedNodes.append( nodeInSplit );
-			nodeInSplit = nextNode;
-		}
-		removeFormatting( this, formattedNodes, cleanNodes );
-		cleanNodes.normalize();
-		nodeInSplit = cleanNodes.firstChild;
-		nextNode = cleanNodes.lastChild;
-
-		// Restore selection
-		childNodes = stopNode.childNodes;
-		if ( nodeInSplit ) {
-			stopNode.insertBefore( cleanNodes, nodeAfterSplit );
-			startOffset = indexOf( childNodes, nodeInSplit );
-			endOffset = indexOf( childNodes, nextNode ) + 1;
-		} else {
-			startOffset = indexOf( childNodes, nodeAfterSplit );
-			endOffset = startOffset;
-		}
-
-		// Merge text nodes at edges, if possible
-		range.setStart( stopNode, startOffset );
-		range.setEnd( stopNode, endOffset );
-		mergeInlines( stopNode, range );
-
-		// And move back down the tree
-		moveRangeBoundariesDownTree( range );
-
-		this.setSelection( range );
-		this._updatePath( range, true );
-
-		return this.focus();
-	}
-
 	changeIndentationLevel (direction) {
 		let parent = this.getSelectionClosest('UL,OL,BLOCKQUOTE');
 		if (parent || 'increase' === direction) {
@@ -4275,8 +3788,7 @@ class Squire
 	decreaseQuoteLevel ( range ) {
 		this.modifyBlocks(
 			frag => {
-				var blockquotes = frag.querySelectorAll( 'blockquote' );
-				Array.prototype.filter.call( blockquotes, el =>
+				Array.prototype.filter.call( frag.querySelectorAll( 'blockquote' ), el =>
 					!getClosest( el.parentNode, frag, 'BLOCKQUOTE' )
 				).forEach( el => el.replaceWith( empty( el ) ) );
 				return frag;
@@ -4298,19 +3810,15 @@ class Squire
 
 	removeList () {
 		this.modifyBlocks( frag => {
-			let lists = frag.querySelectorAll( 'UL, OL' ),
-				items =  frag.querySelectorAll( 'LI' ),
-				root = this._root,
-				i, l, list, listFrag, item;
-			for ( i = 0, l = lists.length; i < l; ++i ) {
-				list = lists[i];
+			let root = this._root,
+				listFrag;
+			frag.querySelectorAll( 'UL, OL' ).forEach( list => {
 				listFrag = empty( list );
 				fixContainer( listFrag, root );
 				list.replaceWith( listFrag );
-			}
+			});
 
-			for ( i = 0, l = items.length; i < l; ++i ) {
-				item = items[i];
+			frag.querySelectorAll( 'LI' ).forEach( item => {
 				if ( isBlock( item ) ) {
 					item.replaceWith(
 						this.createDefaultBlock([ empty( item ) ])
@@ -4319,7 +3827,7 @@ class Squire
 					fixContainer( item, root );
 					item.replaceWith( empty( item ) );
 				}
-			}
+			});
 
 			return frag;
 		});

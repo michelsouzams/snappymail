@@ -2,9 +2,10 @@ import ko from 'ko';
 
 import { pString } from 'Common/Utils';
 import { settings } from 'Common/Links';
-import { doc, elementById } from 'Common/Globals';
+import { createElement, elementById } from 'Common/Globals';
 
 import { AbstractScreen } from 'Knoin/AbstractScreen';
+import { i18nToNodes } from 'Common/Translator';
 
 const VIEW_MODELS = [];
 
@@ -18,131 +19,96 @@ export class AbstractSettingsScreen extends AbstractScreen {
 		this.menu = ko.observableArray();
 
 		this.oCurrentSubScreen = null;
-
-		this.setupSettings();
-	}
-
-	/**
-	 * @param {Function=} fCallback
-	 */
-	setupSettings(fCallback = null) {
-		fCallback && fCallback();
 	}
 
 	onRoute(subName) {
 		let settingsScreen = null,
-			RoutedSettingsViewModel = null,
-			viewModelDom = null;
-
-		RoutedSettingsViewModel = VIEW_MODELS.find(
-			SettingsViewModel =>
-				SettingsViewModel && SettingsViewModel.__rlSettingsData && subName === SettingsViewModel.__rlSettingsData.Route
-		);
+			viewModelDom = null,
+			RoutedSettingsViewModel = VIEW_MODELS.find(
+				SettingsViewModel => subName === SettingsViewModel.__rlSettingsData.route
+			);
 
 		if (RoutedSettingsViewModel) {
-			if (RoutedSettingsViewModel.__builded && RoutedSettingsViewModel.__vm) {
+			const vmPlace = elementById('rl-settings-subscreen');
+			if (RoutedSettingsViewModel.__vm) {
 				settingsScreen = RoutedSettingsViewModel.__vm;
+			} else if (vmPlace) {
+				viewModelDom = createElement('div',{
+					id: 'V-Settings-' + RoutedSettingsViewModel.name.replace(/(User|Admin)Settings/,''),
+					hidden: ''
+				})
+				vmPlace.append(viewModelDom);
+
+				settingsScreen = new RoutedSettingsViewModel();
+				settingsScreen.viewModelDom = viewModelDom;
+
+				RoutedSettingsViewModel.__dom = viewModelDom;
+				RoutedSettingsViewModel.__vm = settingsScreen;
+
+				ko.applyBindingAccessorsToNode(
+					viewModelDom,
+					{
+						template: () => ({ name: RoutedSettingsViewModel.__rlSettingsData.template })
+					},
+					settingsScreen
+				);
+
+				settingsScreen.onBuild?.(viewModelDom);
 			} else {
-				const vmPlace = elementById('rl-settings-subscreen');
-				if (vmPlace) {
-					settingsScreen = new RoutedSettingsViewModel();
-
-					viewModelDom = Element.fromHTML('<div class="rl-settings-view-model" hidden=""></div>');
-					vmPlace.append(viewModelDom);
-
-					settingsScreen.viewModelDom = viewModelDom;
-
-					settingsScreen.__rlSettingsData = RoutedSettingsViewModel.__rlSettingsData;
-
-					RoutedSettingsViewModel.__dom = viewModelDom;
-					RoutedSettingsViewModel.__builded = true;
-					RoutedSettingsViewModel.__vm = settingsScreen;
-
-					const tmpl = { name: RoutedSettingsViewModel.__rlSettingsData.Template };
-					ko.applyBindingAccessorsToNode(
-						viewModelDom,
-						{
-							i18nInit: true,
-							template: () => tmpl
-						},
-						settingsScreen
-					);
-
-					settingsScreen.onBuild && settingsScreen.onBuild(viewModelDom);
-				} else {
-					console.log('Cannot find sub settings view model position: SettingsSubScreen');
-				}
+				console.log('Cannot find sub settings view model position: SettingsSubScreen');
 			}
 
 			if (settingsScreen) {
-				const o = this;
 				setTimeout(() => {
 					// hide
-					if (o.oCurrentSubScreen) {
-						o.oCurrentSubScreen.onHide && o.oCurrentSubScreen.onHide();
-						o.oCurrentSubScreen.viewModelDom.hidden = true;
-					}
+					this.onHide();
 					// --
 
-					o.oCurrentSubScreen = settingsScreen;
+					this.oCurrentSubScreen = settingsScreen;
 
 					// show
-					if (o.oCurrentSubScreen) {
-						o.oCurrentSubScreen.onBeforeShow && o.oCurrentSubScreen.onBeforeShow();
-						o.oCurrentSubScreen.viewModelDom.hidden = false;
-						o.oCurrentSubScreen.onShow && o.oCurrentSubScreen.onShow();
+					settingsScreen.beforeShow?.();
+					i18nToNodes(settingsScreen.viewModelDom);
+					settingsScreen.viewModelDom.hidden = false;
+					settingsScreen.onShow?.();
 
-						o.menu.forEach(item => {
-							item.selected(
-								settingsScreen &&
-									settingsScreen.__rlSettingsData &&
-									item.route === settingsScreen.__rlSettingsData.Route
-							);
-						});
+					this.menu.forEach(item => {
+						item.selected(
+							item.route === RoutedSettingsViewModel.__rlSettingsData.route
+						);
+					});
 
-						doc.querySelector('#rl-content .b-settings .b-content').scrollTop = 0;
-					}
+					(vmPlace || {}).scrollTop = 0;
 					// --
 				}, 1);
 			}
 		} else {
-			rl.route.setHash(settings(), false, true);
+			hasher.replaceHash(settings());
 		}
 	}
 
 	onHide() {
-		if (this.oCurrentSubScreen && this.oCurrentSubScreen.viewModelDom) {
-			this.oCurrentSubScreen.onHide && this.oCurrentSubScreen.onHide();
-			this.oCurrentSubScreen.viewModelDom.hidden = true;
+		let subScreen = this.oCurrentSubScreen;
+		if (subScreen) {
+			subScreen.onHide?.();
+			subScreen.viewModelDom.hidden = true;
 		}
 	}
 
 	onBuild() {
-		VIEW_MODELS.forEach(SettingsViewModel => {
-			if (
-				SettingsViewModel &&
-				SettingsViewModel.__rlSettingsData
-			) {
-				this.menu.push({
-					route: SettingsViewModel.__rlSettingsData.Route,
-					label: SettingsViewModel.__rlSettingsData.Label,
-					selected: ko.observable(false)
-				});
-			}
-		});
+		VIEW_MODELS.forEach(SettingsViewModel => this.menu.push(SettingsViewModel.__rlSettingsData));
 	}
 
 	routes() {
 		const DefaultViewModel = VIEW_MODELS.find(
-				SettingsViewModel =>
-					SettingsViewModel && SettingsViewModel.__rlSettingsData && SettingsViewModel.__rlSettingsData.IsDefault
+				SettingsViewModel => SettingsViewModel.__rlSettingsData.isDefault
 			),
 			defaultRoute =
-				DefaultViewModel && DefaultViewModel.__rlSettingsData ? DefaultViewModel.__rlSettingsData.Route : 'general',
+				DefaultViewModel ? DefaultViewModel.__rlSettingsData.route : 'general',
 			rules = {
 				subname: /^(.*)$/,
 				normalize_: (rquest, vals) => {
-					vals.subname = undefined === vals.subname ? defaultRoute : pString(vals.subname);
+					vals.subname = null == vals.subname ? defaultRoute : pString(vals.subname);
 					return [vals.subname];
 				}
 			};
@@ -164,11 +130,13 @@ export class AbstractSettingsScreen extends AbstractScreen {
  * @returns {void}
  */
 export function settingsAddViewModel(SettingsViewModelClass, template, labelName, route, isDefault = false) {
+	let name = SettingsViewModelClass.name.replace(/(User|Admin)Settings/, '');
 	SettingsViewModelClass.__rlSettingsData = {
-		Label: labelName,
-		Template: template,
-		Route: route,
-		IsDefault: !!isDefault
+		label: labelName || 'SETTINGS_LABELS/LABEL_' + name.toUpperCase() + '_NAME',
+		route: route || name.toLowerCase(),
+		selected: ko.observable(false),
+		template: template || SettingsViewModelClass.name,
+		isDefault: !!isDefault
 	};
 
 	VIEW_MODELS.push(SettingsViewModelClass);

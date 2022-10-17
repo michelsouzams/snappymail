@@ -15,50 +15,34 @@ trait Contacts
 			return $this->FalseResponse(__FUNCTION__);
 		}
 
-		$bEnabled = '1' === (string) $this->GetActionParam('Enable', '0');
-		$sUrl = $this->GetActionParam('Url', '');
-		$sUser = $this->GetActionParam('User', '');
 		$sPassword = $this->GetActionParam('Password', '');
 
 		$mData = $this->getContactsSyncData($oAccount);
 
-		$bResult = $this->StorageProvider()->Put($oAccount,
-			\RainLoop\Providers\Storage\Enumerations\StorageType::CONFIG,
-			'contacts_sync',
-			\RainLoop\Utils::EncodeKeyValues(array(
-				'Enable' => $bEnabled,
-				'User' => $sUser,
-				'Password' => APP_DUMMY === $sPassword && isset($mData['Password']) ?
-					$mData['Password'] : (APP_DUMMY === $sPassword ? '' : $sPassword),
-				'Url' => $sUrl
-			))
-		);
+		$bResult = $this->setContactsSyncData($oAccount, array(
+			'Mode' => \intval($this->GetActionParam('Mode', '0')),
+			'User' => $this->GetActionParam('User', ''),
+			'Password' => APP_DUMMY === $sPassword && isset($mData['Password'])
+				? $mData['Password'] : (APP_DUMMY === $sPassword ? '' : $sPassword),
+			'Url' => $this->GetActionParam('Url', '')
+		));
 
 		return $this->DefaultResponse(__FUNCTION__, $bResult);
 	}
 
 	public function DoContactsSync() : array
 	{
-		$bResult = false;
 		$oAccount = $this->getAccountFromToken();
-
 		$oAddressBookProvider = $this->AddressBookProvider($oAccount);
-		if ($oAddressBookProvider && $oAddressBookProvider->IsActive())
-		{
-			$mData = $this->getContactsSyncData($oAccount);
-			if (isset($mData['Enable'], $mData['User'], $mData['Password'], $mData['Url']) && $mData['Enable'])
-			{
-				$bResult = $oAddressBookProvider->Sync(
-					$oAccount->ParentEmailHelper(),
-					$mData['Url'], $mData['User'], $mData['Password']);
-			}
-		}
-
-		if (!$bResult)
-		{
+		if (!$oAddressBookProvider) {
 			throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::ContactsSyncError);
 		}
-
+		\ignore_user_abort(true);
+		\SnappyMail\HTTP\Stream::start(/*$binary = false*/);
+		\SnappyMail\HTTP\Stream::JSON(['messsage'=>'start']);
+		if (!$oAddressBookProvider->Sync()) {
+			throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::ContactsSyncError);
+		}
 		return $this->TrueResponse(__FUNCTION__);
 	}
 
@@ -79,8 +63,7 @@ trait Contacts
 		if ($oAbp->IsActive())
 		{
 			$iResultCount = 0;
-			$mResult = $oAbp->GetContacts($oAccount->ParentEmailHelper(),
-				$iOffset, $iLimit, $sSearch, $iResultCount);
+			$mResult = $oAbp->GetContacts($iOffset, $iLimit, $sSearch, $iResultCount);
 		}
 
 		return $this->DefaultResponse(__FUNCTION__, array(
@@ -100,9 +83,9 @@ trait Contacts
 		$aFilteredUids = \array_filter(\array_map('intval', $aUids));
 
 		$bResult = false;
-		if (0 < \count($aFilteredUids) && $this->AddressBookProvider($oAccount)->IsActive())
+		if (\count($aFilteredUids) && $this->AddressBookProvider($oAccount)->IsActive())
 		{
-			$bResult = $this->AddressBookProvider($oAccount)->DeleteContacts($oAccount->ParentEmailHelper(), $aFilteredUids);
+			$bResult = $this->AddressBookProvider($oAccount)->DeleteContacts($aFilteredUids);
 		}
 
 		return $this->DefaultResponse(__FUNCTION__, $bResult);
@@ -114,61 +97,26 @@ trait Contacts
 
 		$bResult = false;
 
-		$oAddressBookProvider = $this->AddressBookProvider($oAccount);
-		$sRequestUid = \trim($this->GetActionParam('RequestUid', ''));
-		if ($oAddressBookProvider && $oAddressBookProvider->IsActive() && 0 < \strlen($sRequestUid))
-		{
-			$sUid = \trim($this->GetActionParam('Uid', ''));
-
-			$oContact = null;
-			if (0 < \strlen($sUid))
-			{
-				$oContact = $oAddressBookProvider->GetContactByID($oAccount->ParentEmailHelper(), $sUid);
-			}
-
-			if (!$oContact)
-			{
-				$oContact = new \RainLoop\Providers\AddressBook\Classes\Contact();
-				if (0 < \strlen($sUid))
-				{
-					$oContact->IdContact = $sUid;
-				}
-			}
-
-			$oContact->Properties = array();
-			$aProperties = $this->GetActionParam('Properties', array());
-			if (\is_array($aProperties))
-			{
-				foreach ($aProperties as $aItem)
-				{
-					if ($aItem && isset($aItem['type'], $aItem['value'])
-					 && \is_numeric($aItem['type']) && (int) $aItem['type']
-					 && \RainLoop\Providers\AddressBook\Enumerations\PropertyType::FULLNAME != $aItem['type']
-					 && \strlen(\trim($aItem['value'])))
-					{
-						$oProp = new \RainLoop\Providers\AddressBook\Classes\Property();
-						$oProp->Type = (int) $aItem['type'];
-						$oProp->Value = \trim($aItem['value']);
-						$oProp->TypeStr = $aItem['typeStr'] ?? '';
-
-						$oContact->Properties[] = $oProp;
+		if ($this->HasActionParam('Uid') && $this->HasActionParam('jCard')) {
+			$oAddressBookProvider = $this->AddressBookProvider($oAccount);
+			if ($oAddressBookProvider && $oAddressBookProvider->IsActive()) {
+				$vCard = \Sabre\VObject\Reader::readJson($this->GetActionParam('jCard'));
+				if ($vCard && $vCard instanceof \Sabre\VObject\Component\VCard) {
+					$vCard->REV = \gmdate('Ymd\\THis\\Z');
+					$vCard->PRODID = 'SnappyMail-'.APP_VERSION;
+					$sUid = \trim($this->GetActionParam('Uid'));
+					$oContact = $sUid ? $oAddressBookProvider->GetContactByID($sUid) : null;
+					if (!$oContact) {
+						$oContact = new \RainLoop\Providers\AddressBook\Classes\Contact();
 					}
+					$oContact->setVCard($vCard);
+					$bResult = $oAddressBookProvider->ContactSave($oContact);
 				}
 			}
-
-			if (!empty($oContact->Etag))
-			{
-				$oContact->Etag = \md5($oContact->ToVCard());
-			}
-
-			$oContact->PopulateDisplayAndFullNameValue(true);
-
-			$bResult = $oAddressBookProvider->ContactSave($oAccount->ParentEmailHelper(), $oContact);
 		}
 
 		return $this->DefaultResponse(__FUNCTION__, array(
-			'RequestUid' => $sRequestUid,
-			'ResultID' => $bResult ? $oContact->IdContact : '',
+			'ResultID' => $bResult ? $oContact->id : '',
 			'Result' => $bResult
 		));
 	}
@@ -226,7 +174,7 @@ trait Contacts
 
 		if (UPLOAD_ERR_OK !== $iError)
 		{
-			$iClientError = \RainLoop\Enumerations\UploadClientError::NORMAL;
+			$iClientError = \RainLoop\Enumerations\UploadError::NORMAL;
 			$sError = $this->getUploadErrorMessageByCode($iError, $iClientError);
 
 			if (!empty($sError))
@@ -238,25 +186,56 @@ trait Contacts
 		return $this->DefaultResponse(__FUNCTION__, $mResponse);
 	}
 
+	public function setContactsSyncData(\RainLoop\Model\Account $oAccount, array $aData) : bool
+	{
+		if (!isset($aData['Mode'])) {
+			$aData['Mode'] = empty($aData['Enable']) ? 0 : 1;
+		}
+		$oMainAccount = $this->getMainAccountFromToken();
+		if ($aData['Password']) {
+			$aData['Password'] = \SnappyMail\Crypt::EncryptToJSON($aData['Password'], $oMainAccount->CryptKey());
+		}
+		$aData['PasswordHMAC'] = $aData['Password'] ? \hash_hmac('sha1', $aData['Password'], $oMainAccount->CryptKey()) : null;
+		return $this->StorageProvider()->Put(
+			$oAccount,
+			\RainLoop\Providers\Storage\Enumerations\StorageType::CONFIG,
+			'contacts_sync',
+			\json_encode($aData)
+		);
+	}
+
 	protected function getContactsSyncData(\RainLoop\Model\Account $oAccount) : ?array
 	{
-		$mResult = null;
 		$sData = $this->StorageProvider()->Get($oAccount,
 			\RainLoop\Providers\Storage\Enumerations\StorageType::CONFIG,
 			'contacts_sync'
 		);
 		if (!empty($sData)) {
-			$aData = \RainLoop\Utils::DecodeKeyValues($sData);
+			$aData = \json_decode($sData, true);
 			if ($aData) {
-				$mResult = array(
-					'Enable' => isset($aData['Enable']) ? !!$aData['Enable'] : false,
-					'Url' => isset($aData['Url']) ? \trim($aData['Url']) : '',
-					'User' => isset($aData['User']) ? \trim($aData['User']) : '',
-					'Password' => isset($aData['Password']) ? $aData['Password'] : ''
-				);
+				if ($aData['Password']) {
+					$oMainAccount = $this->getMainAccountFromToken();
+					// Verify oAccount password hasn't changed so that Password can be decrypted
+					if ($aData['PasswordHMAC'] !== \hash_hmac('sha1', $aData['Password'], $oMainAccount->CryptKey())) {
+						// Failed
+						$aData['Password'] = null;
+					} else {
+						// Success
+						$aData['Password'] = \SnappyMail\Crypt::DecryptFromJSON(
+							$aData['Password'],
+							$oMainAccount->CryptKey()
+						);
+					}
+				}
+				if (!isset($aData['Mode'])) {
+					$aData['Mode'] = empty($aData['Enable']) ? 0 : 1;
+				}
+				return $aData;
 			}
+
+			return \SnappyMail\Upgrade::ConvertInsecureContactsSync($this, $oAccount);
 		}
-		return $mResult;
+		return null;
 	}
 
 	public function RawContactsVcf() : bool
@@ -264,14 +243,15 @@ trait Contacts
 		$oAccount = $this->getAccountFromToken();
 
 		\header('Content-Type: text/x-vcard; charset=UTF-8');
-		\header('Content-Disposition: attachment; filename="contacts.vcf"', true);
-		\header('Accept-Ranges: none', true);
+		\header('Content-Disposition: attachment; filename="contacts.vcf"');
+		\header('Accept-Ranges: none');
 		\header('Content-Transfer-Encoding: binary');
 
-		$this->oHttp->ServerNoCache();
+		$this->Http()->ServerNoCache();
 
-		return $this->AddressBookProvider($oAccount)->IsActive() ?
-			$this->AddressBookProvider($oAccount)->Export($oAccount->ParentEmailHelper(), 'vcf') : false;
+		$oAddressBookProvider = $this->AddressBookProvider($oAccount);
+		return $oAddressBookProvider->IsActive() ?
+			$oAddressBookProvider->Export('vcf') : false;
 	}
 
 	public function RawContactsCsv() : bool
@@ -279,14 +259,79 @@ trait Contacts
 		$oAccount = $this->getAccountFromToken();
 
 		\header('Content-Type: text/csv; charset=UTF-8');
-		\header('Content-Disposition: attachment; filename="contacts.csv"', true);
-		\header('Accept-Ranges: none', true);
+		\header('Content-Disposition: attachment; filename="contacts.csv"');
+		\header('Accept-Ranges: none');
 		\header('Content-Transfer-Encoding: binary');
 
-		$this->oHttp->ServerNoCache();
+		$this->Http()->ServerNoCache();
 
-		return $this->AddressBookProvider($oAccount)->IsActive() ?
-			$this->AddressBookProvider($oAccount)->Export($oAccount->ParentEmailHelper(), 'csv') : false;
+		$oAddressBookProvider = $this->AddressBookProvider($oAccount);
+		return $oAddressBookProvider->IsActive() ?
+			$oAddressBookProvider->Export('csv') : false;
+	}
+
+	private function importContactsFromVcfFile(\RainLoop\Model\Account $oAccount, /*resource*/ $rFile): int
+	{
+		$iCount = 0;
+		if ($oAccount && \is_resource($rFile)) {
+			$oAddressBookProvider = $this->AddressBookProvider($oAccount);
+			if ($oAddressBookProvider && $oAddressBookProvider->IsActive()) {
+				$sFile = \stream_get_contents($rFile);
+				if (\is_resource($rFile)) {
+					\fclose($rFile);
+				}
+
+				if (is_string($sFile) && 5 < \strlen($sFile)) {
+					$this->Logger()->Write('Import contacts from vcf');
+					$iCount = $oAddressBookProvider->ImportVcfFile($sFile);
+				}
+			}
+		}
+
+		return $iCount;
+	}
+
+	private function importContactsFromCsvFile(\RainLoop\Model\Account $oAccount, /*resource*/ $rFile, string $sFileStart): int
+	{
+		$iCount = 0;
+		$aHeaders = null;
+		$aData = array();
+
+		if ($oAccount && \is_resource($rFile)) {
+			$oAddressBookProvider = $this->AddressBookProvider($oAccount);
+			if ($oAddressBookProvider && $oAddressBookProvider->IsActive()) {
+				$sDelimiter = ((int)\strpos($sFileStart, ',') > (int)\strpos($sFileStart, ';')) ? ',' : ';';
+
+				\setlocale(LC_CTYPE, 'en_US.UTF-8');
+				while (false !== ($mRow = \fgetcsv($rFile, 5000, $sDelimiter, '"'))) {
+					if (null === $aHeaders) {
+						if (3 >= \count($mRow)) {
+							return 0;
+						}
+
+						$aHeaders = $mRow;
+
+						foreach ($aHeaders as $iIndex => $sHeaderValue) {
+							$aHeaders[$iIndex] = \MailSo\Base\Utils::Utf8Clear($sHeaderValue);
+						}
+					} else {
+						$aNewItem = array();
+						foreach ($aHeaders as $iIndex => $sHeaderValue) {
+							$aNewItem[$sHeaderValue] = isset($mRow[$iIndex]) ? $mRow[$iIndex] : '';
+						}
+
+						$aData[] = $aNewItem;
+					}
+				}
+
+				if (\count($aData)) {
+					$this->oLogger->Write('Import contacts from csv');
+					$iCount = $oAddressBookProvider->ImportCsvArray($aData);
+				}
+			}
+		}
+
+		return $iCount;
 	}
 
 }

@@ -17,21 +17,6 @@ namespace MailSo;
 class Config
 {
 	/**
-	 * @var array|null
-	 */
-	public static $HtmlStrictAllowedTags = null;
-
-	/**
-	 * @var array|null
-	 */
-	public static $HtmlStrictAllowedAttributes = null;
-
-	/**
-	 * @var boolean
-	 */
-	public static $HtmlStrictDebug = false;
-
-	/**
 	 * @var int
 	 */
 	public static $MessageListFastSimpleSearch = true;
@@ -40,11 +25,6 @@ class Config
 	 * @var int
 	 */
 	public static $MessageListCountLimitTrigger = 0;
-
-	/**
-	 * @var bool
-	 */
-	public static $MessageListUndeletedOnly = true;
 
 	/**
 	 * @var int
@@ -90,9 +70,4 @@ class Config
 	 * @var int
 	 */
 	public static $ImapTimeout = 300;
-
-	/**
-	 * @var \MailSo\Log\Logger|null
-	 */
-	public static $SystemLogger = null;
 }

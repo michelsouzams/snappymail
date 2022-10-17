@@ -6,18 +6,16 @@
 
 @import "../../vendors/bootstrap/less/grid.less";
 @import "../../vendors/bootstrap/less/type.less";
-@import "../../vendors/bootstrap/less/code.less";
 @import "../../vendors/bootstrap/less/forms.less";
 @import "../../vendors/bootstrap/less/tables.less";
-@import "../../vendors/bootstrap/less/dropdowns.less";
 @import "../../vendors/bootstrap/less/close.less";
 @import "../../vendors/bootstrap/less/buttons.less";
 @import "../../vendors/bootstrap/less/button-groups.less";
 @import "../../vendors/bootstrap/less/alerts.less";
-@import "../../vendors/bootstrap/less/modals.less";
-@import "../../vendors/bootstrap/less/utilities.less";
+@import "../../vendors/bootstrap/less/code.less";
+@import "../../vendors/bootstrap/less/dropdowns.less";
 @import "../../vendors/bootstrap/less/navs.less";
-@import "../../vendors/bootstrap/less/labels-badges.less";
+@import "../../vendors/bootstrap/less/utilities.less";
 
 @import "_FontasticToBoot.less";
 @import "_BootstrapFix.less";
@@ -34,11 +32,11 @@
 @import "User/Shortcuts.less";
 @import "User/FolderList.less";
 @import "User/Filter.less";
-@import "User/Template.less";
 @import "User/OpenPgpKey.less";
 @import "User/Identity.less";
 @import "User/AdvancedSearch.less";
-@import "User/Attachmnets.less";
+@import "User/Attachments.less";
+@import "User/MessageFlags.less";
 @import "User/MessageList.less";
 @import "User/MessageView.less";
 @import "User/Contacts.less";
@@ -48,8 +46,7 @@
 @import "User/Settings.less";
 @import "User/SettingsGeneral.less";
 @import "User/SettingsAccounts.less";
-@import "User/SettingsTemplates.less";
-@import "User/SettingsOpenPGP.less";
+@import "User/SettingsSecurity.less";
 @import "User/SettingsFolders.less";
 @import "User/SettingsThemes.less";
 @import "User/SettingsFilters.less";
@@ -57,6 +54,41 @@
 @import "User/SquireUI.less";
 
 @import "User/Animations.less";
-@import "Animations.less";
 
 @import "_End.less";
+
+@media print {
+	body, html {
+		height: auto;
+		overflow: auto;
+	}
+	body, #rl-right {
+		position: initial;
+	}
+	#rl-left {
+		display: none;
+	}
+	.message-selected {
+		.close,
+		.infoParent,
+		.messageView .controls-handle,
+		#tags-dropdown-id,
+		.message-fixed-button-toolbar,
+		#V-MailMessageList,
+		#V-SystemDropDown,
+		.bodySubHeader {
+			display: none;
+		}
+		#V-MailMessageView {
+			left: 0;
+			position: initial;
+		}
+		.messageView,
+		.messageView .b-content,
+		.messageView .b-message,
+		#messageItem,
+		#messageItem .b-text-part {
+			height: auto;
+		}
+	}
+}

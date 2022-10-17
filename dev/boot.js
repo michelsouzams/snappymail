@@ -1,48 +1,13 @@
+(doc => {
 
-(win => {
+navigator.cookieEnabled || doc.location.replace('./?/NoCookie');
 
 const
-	doc = document,
-	eId = id => doc.getElementById(id),
-	app = eId('rl-app'),
+	eId = id => doc.getElementById('rl-'+id),
+	app = eId('app'),
 	admin = app && '1' == app.dataset.admin,
-
-	getCookie = name => {
-		let data = doc.cookie.match('(^|;) ?'+name+'=([^;]*)(;|$)');
-		return data ? decodeURIComponent(data[2]) : null;
-	},
-
-	Storage = type => {
-		let name = type+'Storage';
-		try {
-			win[name].setItem(name, '');
-			win[name].getItem(name);
-			win[name].removeItem(name);
-		} catch (e) {
-			console.error(e);
-			const cookieName = encodeURIComponent(name+('session' === type ? win.name || (win.name = Date.now()) : ''));
-
-			// initialise if there's already data
-			let data = getCookie(cookieName);
-			data = data ? JSON.parse(data) : {};
-
-			win[name] = {
-				getItem: key => data[key] === undefined ? null : data[key],
-				setItem: function (key, value) {
-					data[key] = ''+value; // forces the value to a string
-					doc.cookie = cookieName+'='+encodeURIComponent(JSON.stringify(data))
-						+"; expires="+('local' === type ? (new Date(Date.now()+(365*24*60*60*1000))).toGMTString() : '')
-						+"; path=/; samesite=strict";
-				}
-			};
-		}
-		return win[name];
-	},
-
-	showError = () => {
-		eId('rl-loading').hidden = true;
-		eId('rl-loading-error').hidden = false;
-	},
+	layout = doc.cookie.match(/(^|;) ?rllayout=([^;]+)/) || '',
+	badBrowser = () => doc.location.replace('./?/BadBrowser'),
 
 	loadScript = src => {
 		if (!src) {
@@ -51,71 +16,63 @@ const
 		return new Promise((resolve, reject) => {
 			const script = doc.createElement('script');
 			script.onload = () => resolve();
-			script.onerror = () => reject(new Error(src));
+			script.onerror = () => reject(new Error('Failed loading ' + src));
 			script.src = src;
 //			script.async = true;
 			doc.head.append(script);
 		});
 	};
 
-if (!navigator || !navigator.cookieEnabled) {
-	doc.location.href = './?/NoCookie';
-}
+[].flat || badBrowser();
 
-const layout = getCookie('rllayout');
-doc.documentElement.classList.toggle('rl-mobile', 'mobile' === layout || (!layout && 1000 > innerWidth));
+let RL_APP_DATA = {};
 
-let progress = eId('progressjs'),
-	RL_APP_DATA = {};
+doc.documentElement.classList.toggle('rl-mobile', 'mobile' === layout[2] || (!layout && 1000 > innerWidth));
 
-if (progress) {
-	progress.remove();
-	progress = null;
-}
-
-win.rl = {
-	data: () => RL_APP_DATA,
+window.rl = {
 	adminArea: () => admin,
+
 	settings: {
-		get: name => null == RL_APP_DATA[name] ? null : RL_APP_DATA[name],
+		get: name => RL_APP_DATA[name],
 		set: (name, value) => RL_APP_DATA[name] = value,
-		app: name => {
-			const APP_SETTINGS = RL_APP_DATA.System || {};
-			return null == APP_SETTINGS[name] ? null : APP_SETTINGS[name];
-		},
-		capa: name => null != name && Array.isArray(RL_APP_DATA.Capa) && RL_APP_DATA.Capa.includes(name)
+		app: name => RL_APP_DATA.System[name]
 	},
-	setWindowTitle: title => {
-		title = null == title ? '' : '' + title;
-		if (RL_APP_DATA.Title) {
-			title += (title ? ' - ' : '') + RL_APP_DATA.Title;
-		}
-		doc.title = title;
-	},
+
+	setWindowTitle: title =>
+		doc.title = RL_APP_DATA.Title ? (title ? title + ' - ' : '') + RL_APP_DATA.Title : (title ? '' + title : ''),
 
 	initData: appData => {
 		RL_APP_DATA = appData;
-
-		if (appData) {
-			loadScript(appData.StaticLibJsLink)
-			.then(() => loadScript(appData.StaticAppJsLink))
+		const url = appData.StaticLibsJs,
+			cb = () => rl.app ? rl.app.bootstart() : badBrowser(),
+			div = eId('loading-error'),
+			showError = msg => {
+				div.append(' ' + msg);
+				eId('loading').hidden = true;
+				div.hidden = false;
+			};
+		loadScript(url)
+			.then(() => loadScript(url.replace('/libs.', `/${admin?'admin':'app'}.`)))
 			.then(() => appData.PluginsLink ? loadScript(appData.PluginsLink) : Promise.resolve())
-			.then(() => win.__APP_BOOT ? win.__APP_BOOT(showError) : showError())
+			.then(() => rl.app
+					? cb()
+					: doc.addEventListener('readystatechange', () => 'complete' == doc.readyState && cb())
+			)
 			.catch(e => {
-				showError();
+				showError(e);
 				throw e;
 			});
-		} else {
-			showError();
-		}
-	}
+	},
+
+	setData: appData => {
+		RL_APP_DATA = appData;
+		rl.app.refresh();
+	},
+
+	loadScript: loadScript
 };
 
-Storage('local');
+loadScript(`./?/${admin ? 'Admin' : ''}AppData/0/${Math.random().toString().slice(2)}/`)
+	.then(() => 0);
 
-eId('app-css').href = eId('app-css').dataset.href;
-
-loadScript(`./?/${admin ? 'Admin' : ''}AppData/0/${Math.random().toString().substr(2)}/`)
-	.then(() => {});
-
-})(this);
+})(document);

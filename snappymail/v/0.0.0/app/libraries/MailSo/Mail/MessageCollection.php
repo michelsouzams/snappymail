@@ -20,69 +20,50 @@ class MessageCollection extends \MailSo\Base\Collection
 	/**
 	 * @var string
 	 */
-	public $FolderHash;
+	public $FolderHash = '';
 
 	/**
 	 * @var int
 	 */
-	public $MessageCount;
-
-	/**
-	 * @var int
-	 */
-	public $MessageUnseenCount;
-
-	/**
-	 * @var int
-	 */
-	public $MessageResultCount;
+	public $MessageResultCount = 0;
 
 	/**
 	 * @var string
 	 */
-	public $FolderName;
+	public $FolderName = '';
 
 	/**
 	 * @var int
 	 */
-	public $Offset;
+	public $Offset = 0;
 
 	/**
 	 * @var int
 	 */
-	public $Limit;
+	public $Limit = 0;
 
 	/**
 	 * @var string
 	 */
-	public $Search;
+	public $Search = '';
 
 	/**
-	 * @var string
+	 * @var int
 	 */
-	public $UidNext;
+	public $ThreadUid = 0;
 
-	/**
-	 * @var string
-	 */
-	public $ThreadUid;
+	// MailSo\Imap\FolderInformation
+	public $FolderInfo = null;
 
 	/**
 	 * @var array
 	 */
-	public $NewMessages;
+	public $NewMessages = array();
 
 	/**
 	 * @var bool
 	 */
-	public $Filtered;
-
-	function __construct()
-	{
-		parent::__construct();
-
-		$this->Clear();
-	}
+	public $Filtered = false;
 
 	public function append($oMessage, bool $bToTop = false) : void
 	{
@@ -92,34 +73,17 @@ class MessageCollection extends \MailSo\Base\Collection
 
 	public function Clear() : void
 	{
-		parent::Clear();
-
-		$this->FolderHash = '';
-
-		$this->MessageCount = 0;
-		$this->MessageUnseenCount = 0;
-		$this->MessageResultCount = 0;
-
-		$this->FolderName = '';
-		$this->Offset = 0;
-		$this->Limit = 0;
-		$this->Search = '';
-		$this->UidNext = '';
-		$this->ThreadUid = '';
-		$this->NewMessages = array();
-
-		$this->Filtered = false;
+		throw new \BadMethodCallException('disallowed');
 	}
 
+	#[\ReturnTypeWillChange]
 	public function jsonSerialize()
 	{
 		return array_merge(parent::jsonSerialize(), array(
-			'MessageCount' => $this->MessageCount,
-			'MessageUnseenCount' => $this->MessageUnseenCount,
 			'MessageResultCount' => $this->MessageResultCount,
 			'Folder' => $this->FolderName,
 			'FolderHash' => $this->FolderHash,
-			'UidNext' => $this->UidNext,
+			'FolderInfo' => $this->FolderInfo,
 			'ThreadUid' => $this->ThreadUid,
 			'NewMessages' => $this->NewMessages,
 			'Filtered' => $this->Filtered,

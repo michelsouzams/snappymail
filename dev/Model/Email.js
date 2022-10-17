@@ -27,18 +27,14 @@ function addressparser(str) {
 
 	tokens.forEach(token => {
 		if (token.type === 'operator' && (token.value === ',' || token.value === ';')) {
-			if (address.length) {
-				addresses.push(address);
-			}
+			address.length && addresses.push(address);
 			address = [];
 		} else {
 			address.push(token);
 		}
 	});
 
-	if (address.length) {
-		addresses.push(address);
-	}
+	address.length && addresses.push(address);
 
 	addresses.forEach(address => {
 		address = _handleAddress(address);
@@ -205,9 +201,7 @@ class Tokenizer
 
 		this.list.forEach(node => {
 			node.value = (node.value || '').toString().trim();
-			if (node.value) {
-				list.push(node);
-			}
+			node.value && list.push(node);
 		});
 
 		return list;
@@ -260,7 +254,7 @@ class Tokenizer
 	}
 }
 
-class EmailModel extends AbstractModel {
+export class EmailModel extends AbstractModel {
 	/**
 	 * @param {string=} email = ''
 	 * @param {string=} name = ''
@@ -284,7 +278,7 @@ class EmailModel extends AbstractModel {
 	 */
 	static reviveFromJson(json) {
 		const email = super.reviveFromJson(json);
-		email && email.clearDuplicateName();
+		email?.clearDuplicateName();
 		return email;
 	}
 
@@ -333,79 +327,54 @@ class EmailModel extends AbstractModel {
 
 	/**
 	 * @param {boolean} friendlyView = false
-	 * @param {boolean=} wrapWithLink = false
-	 * @param {boolean=} useEncodeHtml = false
+	 * @param {boolean} wrapWithLink = false
 	 * @returns {string}
 	 */
-	toLine(friendlyView, wrapWithLink, useEncodeHtml) {
-		let result = '',
-			toLink = (to, txt) => '<a href="mailto:' + to + '" target="_blank" tabindex="-1">' + encodeHtml(txt) + '</a>';
-		if (this.email) {
-			if (friendlyView && this.name) {
-				result = wrapWithLink
-					? toLink(
-						encodeHtml(this.email) + '?to=' + encodeURIComponent('"' + this.name + '" <' + this.email + '>'),
-						this.name
-					)
-					: (useEncodeHtml ? encodeHtml(this.name) : this.name);
-			} else {
-				result = this.email;
-				if (this.name) {
-					if (wrapWithLink) {
-						result =
-							encodeHtml('"' + this.name + '" <')
-							+ toLink(
-								encodeHtml(this.email) + '?to=' + encodeURIComponent('"' + this.name + '" <' + this.email + '>'),
-								result
-							)
-							+ encodeHtml('>');
-					} else {
-						result = '"' + this.name + '" <' + result + '>';
-						if (useEncodeHtml) {
-							result = encodeHtml(result);
-						}
-					}
-				} else if (wrapWithLink) {
-					result = toLink(encodeHtml(this.email), this.email);
-				}
+	toLine(friendlyView, wrapWithLink) {
+		let result = this.email,
+			name = this.name,
+			toLink = text =>
+				'<a href="mailto:'
+				+ encodeHtml(result) + (name ? '?to=' + encodeURIComponent('"' + name + '" <' + result + '>') : '')
+				+ '" target="_blank" tabindex="-1">'
+				+ encodeHtml(text || result)
+				+ '</a>';
+		if (result) {
+			if (name) {
+				result = friendlyView
+					? (wrapWithLink ? toLink(name) : name)
+					: (wrapWithLink
+						? encodeHtml('"' + name + '" <') + toLink() + encodeHtml('>')
+						: '"' + name + '" <' + result + '>'
+					);
+			} else if (wrapWithLink) {
+				result = toLink();
 			}
 		}
-
 		return result;
 	}
 
 	static splitEmailLine(line) {
-		const parsedResult = addressparser(line);
-		if (parsedResult.length) {
-			const result = [];
-			let exists = false;
-			parsedResult.forEach((item) => {
-				const address = item.address
-					? new EmailModel(item.address.replace(/^[<]+(.*)[>]+$/g, '$1'), item.name || '')
-					: null;
+		const result = [];
+		let exists = false;
+		addressparser(line).forEach(item => {
+			const address = item.address
+				? new EmailModel(item.address.replace(/^[<]+(.*)[>]+$/g, '$1'), item.name || '')
+				: null;
 
-				if (address && address.email) {
-					exists = true;
-				}
+			if (address?.email) {
+				exists = true;
+			}
 
-				result.push(address ? address.toLine(false) : item.name);
-			});
-
-			return exists ? result : null;
-		}
-
-		return null;
+			result.push(address ? address.toLine() : item.name);
+		});
+		return exists ? result : null;
 	}
 
 	static parseEmailLine(line) {
-		const parsedResult = addressparser(line);
-		if (parsedResult.length) {
-			return parsedResult.map(item =>
-				item.address ? new EmailModel(item.address.replace(/^[<]+(.*)[>]+$/g, '$1'), item.name || '') : null
-			).filter(v => v);
-		}
-
-		return [];
+		return addressparser(line).map(item =>
+			item.address ? new EmailModel(item.address.replace(/^[<]+(.*)[>]+$/g, '$1'), item.name || '') : null
+		).filter(v => v);
 	}
 
 	/**
@@ -414,21 +383,15 @@ class EmailModel extends AbstractModel {
 	 */
 	parse(emailAddress) {
 		emailAddress = emailAddress.trim();
-		if (!emailAddress) {
-			return false;
+		if (emailAddress) {
+			const result = addressparser(emailAddress);
+			if (result.length) {
+				this.name = result[0].name || '';
+				this.email = result[0].address || '';
+				this.clearDuplicateName();
+				return true;
+			}
 		}
-
-		const result = addressparser(emailAddress);
-		if (result.length) {
-			this.name = result[0].name || '';
-			this.email = result[0].address || '';
-			this.clearDuplicateName();
-
-			return true;
-		}
-
 		return false;
 	}
 }
-
-export { EmailModel, EmailModel as default };

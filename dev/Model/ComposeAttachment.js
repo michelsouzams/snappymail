@@ -1,4 +1,3 @@
-import { pInt } from 'Common/Utils';
 import { FileInfo } from 'Common/File';
 
 import { AbstractModel } from 'Knoin/AbstractModel';
@@ -39,12 +38,12 @@ export class ComposeAttachmentModel extends AbstractModel {
 		this.addComputables({
 			progressText: () => {
 				const p = this.progress();
-				return 0 === p ? '' : '' + (98 < p ? 100 : p) + '%';
+				return 1 > p ? '' : (100 < p ? 100 : p) + '%';
 			},
 
 			progressStyle: () => {
 				const p = this.progress();
-				return 0 === p ? '' : 'width:' + (98 < p ? 100 : p) + '%';
+				return 1 > p ? '' : 'width:' + (100 < p ? 100 : p) + '%';
 			},
 
 			title: () => this.error() || this.fileName(),
@@ -55,47 +54,9 @@ export class ComposeAttachmentModel extends AbstractModel {
 			},
 
 			mimeType: () => FileInfo.getContentType(this.fileName()),
-			fileExt: () => FileInfo.getExtension(this.fileName())
+			fileExt: () => FileInfo.getExtension(this.fileName()),
+
+			iconClass: () => FileInfo.getIconClass(this.fileExt(), this.mimeType())
 		});
-	}
-
-	static fromAttachment(item)
-	{
-		const attachment = new ComposeAttachmentModel(
-			item.download,
-			item.fileName,
-			item.estimatedSize,
-			item.isInline,
-			item.isLinked,
-			item.cid,
-			item.contentLocation
-		);
-		attachment.fromMessage = true;
-		return attachment;
-	}
-
-	/**
-	 * @param {FetchJsonComposeAttachment} json
-	 * @returns {boolean}
-	 */
-	initByUploadJson(json) {
-		let bResult = false;
-		if (json) {
-			this.fileName(json.Name);
-			this.size(undefined === json.Size ? 0 : pInt(json.Size));
-			this.tempName(undefined === json.TempName ? '' : json.TempName);
-			this.isInline = false;
-
-			bResult = true;
-		}
-
-		return bResult;
-	}
-
-	/**
-	 * @returns {string}
-	 */
-	iconClass() {
-		return FileInfo.getIconClass(this.fileExt(), this.mimeType());
 	}
 }

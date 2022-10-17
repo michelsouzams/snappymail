@@ -1,9 +1,13 @@
 
 html.rl-mobile,
 html.rl-no-preview-pane {
-	.messageList.message-selected {
+	.message-selected #V-MailMessageList {
 		display: none;
 	}
+}
+
+#V-MailMessageList.focused .messageList {
+	border-color: #9d9d9d;
 }
 
 #sort-list-dropdown-id {
@@ -11,27 +15,25 @@ html.rl-no-preview-pane {
 	padding-right: 6px;
 }
 
-.messageList {
+#V-MailMessageList .btn-toolbar {
+	height: 30px;
+	padding: 10px 1px;
+	white-space: nowrap;
+}
 
-	.toolbar {
-		position: absolute;
-		top: 0;
-		right: 0;
-		left: 0;
-		height: 30px;
-		padding: 10px 1px;
-		z-index: 102;
-		white-space: nowrap;
-	}
+.messageList {
+	height: calc(100% - 50px);
+	background-color: #fff;
+	border: 1px solid @rlMainDarkColor;
+	border-radius: @rlMainBorderRadius;
+	box-shadow: @rlMainShadow;
+	display: flex;
+	flex-direction: column;
 
 	.b-footer {
-		position: absolute;
-		bottom: 0;
-		right: 0;
-		left: 0;
-		height: 30px;
+	    display: flex;
+		flex-shrink: 0;
 		padding: 7px;
-		z-index: 101;
 
 		background-color: var(--message-list-toolbar-bg-color, #eee);
 //		#gradient > .vertical(#f4f4f4, #dfdfdf);
@@ -41,44 +43,30 @@ html.rl-no-preview-pane {
 		border-top: 1px solid #bbb;
 
 		.e-quota {
+			border-bottom: 1px dashed #333;
 			display: inline-block;
 			margin-top: 5px;
 			margin-left: 5px;
 			font-size: 18px;
 			cursor: help;
 		}
-		.e-quota:hover {
-			border-bottom: 1px dashed #333;
-		}
+	}
+
+	.b-footer nav {
+		flex-grow: 1;
+		text-align: right;
 	}
 
 	.btn.buttonMoreSearch {
+		font-size: 11px;
 		padding-left: 8px;
 		padding-right: 8px;
 	}
 
-	.b-message-list-wrapper {
-		position: absolute;
-		top: 50px;
-		right: 0;
-		left: 0;
-		bottom: @rlBottomMargin;
-
-		border: 1px solid @rlMainDarkColor;
-
-		box-shadow: @rlMainShadow;
-		border-radius: @rlMainBorderRadius;
-		z-index: 101;
-	}
-
 	.second-toolbar {
-		position: absolute;
-		top: 0;
-		right: 0;
-		left: 0;
-		height: 29px;
+		display: flex;
+		flex-shrink: 0;
 		padding: 10px 8px 10px 11px;
-		z-index: 101;
 		white-space: nowrap;
 
 		background-color: var(--message-list-toolbar-bg-color, #eee);
@@ -87,71 +75,55 @@ html.rl-no-preview-pane {
 		border-top-right-radius: @rlMainBorderRadius;
 		border-top-left-radius: @rlMainBorderRadius;
 		border-bottom: 1px solid #bbb;
-
-		.checkboxCheckAll {
-			cursor: pointer;
-			vertical-align: middle
-		}
-
-		.input-append {
-			margin-left: 14px;
-			text-align: right;
-			width: calc(100% - 30px);
-
-			.close-input-wrp {
-				width: 90%;
-				min-width: 200px;
-				max-width: 300px;
-			}
-
-			.inputSearch {
-				width: 100%;
-			}
-		}
 	}
 
-	.line-loading {
+	.checkboxCheckAll {
+		cursor: pointer;
+		margin: 0.45em 0.5em 0 0;
+	}
+
+	.search-input-wrp {
+		flex-grow: 1;
+		position: relative;
+		text-align: right;
+	}
+
+	.inputSearch {
+		max-width: 300px;
+		width: 100%;
+	}
+
+	.closeSearch {
 		position: absolute;
-		left: 0;
 		right: 0;
-		z-index: 102;
-		height: 0;
-		top: 50px;
+		top: 5px;
+		margin: 0 7px;
+		z-index: 100;
+		vertical-align: middle;
+		opacity: .4;
+		&:hover {
+			opacity: .6;
+		}
 	}
 
 	.b-content {
-		position: absolute;
-		top: 50px;
-		bottom: 45px;
-		left: 0;
-		right: 0;
+		height: 100%;
 		padding: 0;
 		overflow: auto;
-		z-index: 101;
 		scroll-behavior: smooth;
-
-		box-sizing: border-box;
-
-		background-color: #fff;
 
 		.listClear {
 			text-align: center;
 			padding: 10px;
-			font-size: 14px;
 			line-height: 13px;
 		}
 
-		.listEmptyList, .listEmptyListLoading, .listDragOver, .listError, .listEmptySearchList {
+		.listEmptyMessage, .listLoading, .listDragOver, .listError {
 			color: #999;
 			text-align: center;
 			padding: 60px 10px;
 			font-size: 24px;
 			line-height: 30px;
-
-			.e-icon {
-				font-size: 24px;
-				line-height: 30px;
-			}
 		}
 
 		.listDragOver {
@@ -197,20 +169,17 @@ html.rl-no-preview-pane {
 			text-align: center;
 		}
 	}
-
-	&.focused .b-message-list-wrapper {
-		background-color: #000;
-		border-color: #9d9d9d;
-	}
 }
 
-.hideMessageListCheckbox {
-	.checkboxCheckAll {
-		visibility: hidden;
-	}
+html:not(rl-mobile) {
+	.hideMessageListCheckbox {
+		.checkboxCheckAll {
+			visibility: hidden;
+		}
 
-	.checkboxMessage {
-		display: none;
+		.checkboxMessage {
+			display: none;
+		}
 	}
 }
 
@@ -219,7 +188,7 @@ html.rl-no-preview-pane {
 	flex-wrap: wrap;
 
 	position: relative;
-	font-size: 12px;
+	font-size: 13px;
 	overflow: hidden;
 	cursor: pointer;
 
@@ -230,76 +199,55 @@ html.rl-no-preview-pane {
 	border-left: 6px solid #eee;
 
 	z-index: 100;
-
+/*
 	> * {
 		display: flex;
 		flex: 0 0 auto;
 		order: 0;
 	}
-
+*/
 	&.focused {
 		background-color: rgba(128, 128, 128, 0.1);
 		border-left-color: #ccc;
 	}
 
-	.importantMark {
-		display: none;
-
-		color:red;
-		margin-right:5px
-	}
-
-	&.deleted-mark {
-		opacity: .7;
-		.subjectParent {
-			text-decoration: line-through;
-		}
-	}
-
-	&.important .importantMark {
-		display: inline;
-	}
-
-	&.new {
-		max-height: 0;
+	&.priorityHigh .subjectParent::before {
+		content: '! '; /*❗*/
+		color: red;
+		font-weight: bolder;
 	}
 
 	&.deleted {
-		max-height: 0;
-		border-color: transparent !important;
+		opacity: .3;
 	}
 
 	.checkboxMessage {
-		line-height: 12px;
-		padding: 0 8px 0 6px;
+		margin: 0 6px;
 		font-size: 16px;
-	}
-
-	.flagParent {
-		padding: 0 10px 0 5px;
 	}
 
 	time, .sizeParent {
 		margin: 0 5px;
-		opacity: 0.6;
+		opacity: 0.7;
 		font-size: 11px;
 		white-space: nowrap;
-	}
-
-	.threadsParent {
-		position: relative;
 	}
 
 	.attachmentParent {
 		position: relative;
 		margin: 2px 10px 0 5px;
-		color: #666;
-		text-shadow: 0 1px 0 #eee;
 	}
 
 	.senderParent, .subjectParent {
+		margin: 0;
 		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.subjectParent:empty {
+		font-style: italic;
+		opacity: 0.5;
 	}
 
 	.threadsCountParent {
@@ -322,63 +270,23 @@ html.rl-no-preview-pane {
 		border-color: #666;
 	}
 
-	.subjectParent .emptySubjectText {
-		display: none;
-		font-style: italic;
-		opacity: 0.5;
-	}
-
-	&.emptySubject .subjectParent {
-		.subject {
-			display: none;
-		}
-		.emptySubjectText {
-			display: inline;
-		}
-	}
-
-	.sender, .subject {
-		margin: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
 	.threads-len {
-		.threads-len-data {
-
-			border-radius: 6px;
-			padding: 2px 0 1px 4px;
-			border: 1px solid #ccc;
-
-			&:hover {
-				background-color: rgba(127,127,127,0.3);
-				border-color: #666;
-			}
-		}
-	}
-
-	.flagOff {
-		opacity: 0.5;
+		border-radius: 6px;
+		border: 1px solid #ccc;
+		font-size: 11px;
+		padding: 0 2px;
+		white-space: nowrap;
 		&:hover {
-			opacity: 1;
+			background-color: rgba(127,127,127,0.3);
+			border-color: #666;
 		}
 	}
-
-	.flagOn, .flagOnHalf {
-		color: orange;
+	.threads-len::after {
+		content: ' ›';
 	}
 
 	.replyFlag, .forwardFlag {
-		display: none;
 		margin-right: 0.25em;
-	}
-
-	&.answered .replyFlag {
-		display: inline-block;
-	}
-
-	&.forwarded .forwardFlag {
-		display: inline-block;
 	}
 
 	&:not(.withAttachments) .attachmentParent {
@@ -396,7 +304,7 @@ html.rl-no-preview-pane {
 	&.unseen {
 		background-color: rgba(255, 255, 64, 0.15);
 		border-left-color: orange;
-		.sender, .subjectParent {
+		.senderParent, .subjectParent {
 			font-weight: bold;
 		}
 
@@ -418,21 +326,41 @@ html.rl-no-preview-pane {
 		border-bottom-color: rgba(57, 140, 242, 0.2);
 		border-left-color: #398CF2;
 		z-index: 101;
+	}
 
-		+ .messageListItem {
-			border-bottom-color: rgba(57, 140, 242, 0.3);
+	.flagParent {
+		padding: 0 10px 0 5px;
+	}
+	.flagParent::after {
+		content: '☆'; /*⚐*/
+	}
+	&.msgflag-\\flagged .flagParent::after,
+	&.hasFlaggedSubMessage .flagParent::after {
+		color: orange;
+		content: '★'; /*⚑*/
+	}
+	&:not(.msgflag-\\flagged):not(.hasFlaggedSubMessage) .flagParent:not(:hover)::after {
+		opacity: 0.5;
+	}
+
+	.senderParent::before {
+		font-family: snappymail;
+	}
+	&.msgflag-\\answered .senderParent::before {
+		content: '← ';
+	}
+	&.msgflag-\$forwarded .senderParent::before {
+		content: '→ ';
+	}
+	&.msgflag-\\answered.msgflag-\$forwarded .senderParent::before {
+		content: '←→ ';
+	}
+	&.msgflag-\\deleted {
+		opacity: .7;
+		.subjectParent {
+			text-decoration: line-through;
 		}
 	}
-
-	&:not(.flagged) .flagOn,
-	&:not(.hasFlaggedSubMessage) .flagOnHalf,
-	&.flagged .flagOff, &.hasFlaggedSubMessage .flagOff {
-		display: none;
-	}
-}
-
-html.rl-ctrl-key-pressed .messageListItem {
-	cursor: copy;
 }
 
 @media screen and (min-width: 1000px) {
@@ -453,10 +381,6 @@ html.rl-ctrl-key-pressed .messageListItem {
 	}
 }
 
-html .messageList .line-loading {
-	height: 5px !important;
-}
-
 #messagesDragImage {
 	color: #fff;
 	background-color: #000;
@@ -473,7 +397,8 @@ html .messageList .line-loading {
 	.messageListItem {
 
 		.checkboxMessage {
-			margin: 10px 0 -5px;
+			line-height: 12px;
+			margin: 10px 6px -5px;
 		}
 
 		.subjectParent {
@@ -500,8 +425,8 @@ html .messageList .line-loading {
 		}
 	}
 
-	.b-message-list-wrapper:not(.hideMessageListCheckbox) .subjectParent {
-		margin-left: 30px;
+	.messageList:not(.hideMessageListCheckbox) .subjectParent {
+		margin-left: 28px;
 	}
 }
 
@@ -512,21 +437,11 @@ html:not(.rl-mobile):not(.rl-side-preview-pane) {
 		line-height: 25px;
 		flex-wrap: nowrap;
 
-		.checkboxMessage {
+		> * {
 			line-height: 25px;
 		}
 
-		.flagParent {
-			margin-top: 6px;
-		}
-
-		.attachmentParent {
-			margin: 6px 8px 0 0;
-		}
-
 		.senderParent {
-			font-weight: normal;
-			text-overflow: none;
 			flex: 0 0 25%;
 		}
 

@@ -1,10 +1,9 @@
 ko.bindingHandlers['style'] = {
     'update': (element, valueAccessor) => {
-        var value = ko.utils.unwrapObservable(valueAccessor() || {});
-        ko.utils.objectForEach(value, (styleName, styleValue) => {
+        ko.utils.objectForEach(ko.utils.unwrapObservable(valueAccessor() || {}), (styleName, styleValue) => {
             styleValue = ko.utils.unwrapObservable(styleValue);
 
-            if (styleValue === null || styleValue === undefined || styleValue === false) {
+            if (styleValue == null || styleValue === false) {
                 // Empty string removes the value, whereas null/undefined have no effect
                 styleValue = "";
             }

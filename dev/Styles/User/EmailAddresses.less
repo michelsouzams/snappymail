@@ -10,10 +10,11 @@
 	margin: 0;
 	padding: 0;
 	transition: border linear .2s, box-shadow linear .2s;
+	max-height: 5em;
+	overflow: auto;
 }
 
 .emailaddresses.emailaddresses-focused {
-	background-color: #fff;
 	border: 1px solid darken(@inputBorder, 20%);
 	box-shadow: none;
 }
@@ -72,7 +73,9 @@
 	height: auto;
 	line-height: inherit;
 	margin: 0;
-	padding: 0;
+	min-width: 18em;
+	max-width: 500px;
+	padding: 4px;
 	vertical-align: baseline;
 }
 

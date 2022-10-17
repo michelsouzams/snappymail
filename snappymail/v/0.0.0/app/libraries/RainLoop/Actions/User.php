@@ -2,10 +2,11 @@
 
 namespace RainLoop\Actions;
 
-use \RainLoop\Enumerations\Capa;
-use \RainLoop\Exceptions\ClientException;
-use \RainLoop\Notifications;
-use \RainLoop\Utils;
+use RainLoop\Enumerations\Capa;
+use RainLoop\Exceptions\ClientException;
+use RainLoop\Notifications;
+use RainLoop\Providers\Suggestions;
+use RainLoop\Utils;
 
 class User extends \RainLoop\Actions
 {
@@ -14,8 +15,22 @@ class User extends \RainLoop\Actions
 	use Filters;
 	use Folders;
 	use Messages;
-	use Templates;
-	use Raw;
+	use Pgp;
+
+	/**
+	 * @var \RainLoop\Providers\Suggestions
+	 */
+	private $oSuggestionsProvider = null;
+
+	public function SuggestionsProvider(): Suggestions
+	{
+		if (null === $this->oSuggestionsProvider) {
+			$this->oSuggestionsProvider = new Suggestions(
+				$this->fabrica('suggestions'));
+		}
+
+		return $this->oSuggestionsProvider;
+	}
 
 	/**
 	 * @throws \MailSo\Base\Exceptions\Exception
@@ -24,27 +39,17 @@ class User extends \RainLoop\Actions
 	{
 		$sEmail = \MailSo\Base\Utils::Trim($this->GetActionParam('Email', ''));
 		$sPassword = $this->GetActionParam('Password', '');
-		$sLanguage = $this->GetActionParam('Language', '');
-		$bSignMe = '1' === (string) $this->GetActionParam('SignMe', '0');
-
-		$oAccount = null;
+		$bSignMe = !empty($this->GetActionParam('SignMe', 0));
 
 		$this->Logger()->AddSecret($sPassword);
 
-		try
-		{
-			$oAccount = $this->LoginProcess($sEmail, $sPassword,
-				$bSignMe ? $this->generateSignMeToken($sEmail) : '');
-			$this->Plugins()->RunHook('login.success', array($oAccount));
-		}
-		catch (ClientException $oException)
-		{
-			throw $oException;
-		}
+		$oAccount = $this->LoginProcess($sEmail, $sPassword, $bSignMe);
+		$this->Plugins()->RunHook('login.success', array($oAccount));
 
-		$this->AuthToken($oAccount);
+		$this->SetAuthToken($oAccount);
 
-		if ($oAccount && 0 < \strlen($sLanguage))
+		$sLanguage = $this->GetActionParam('Language', '');
+		if ($oAccount && $sLanguage)
 		{
 			$oSettings = $this->SettingsProvider()->Load($oAccount);
 			if ($oSettings)
@@ -60,7 +65,7 @@ class User extends \RainLoop\Actions
 			}
 		}
 
-		return $this->TrueResponse(__FUNCTION__);
+		return $this->DefaultResponse(__FUNCTION__, $this->AppData(false));
 	}
 
 	/**
@@ -68,7 +73,7 @@ class User extends \RainLoop\Actions
 	 */
 	public function DoAttachmentsActions() : array
 	{
-		if (!$this->GetCapa(false, Capa::ATTACHMENTS_ACTIONS))
+		if (!$this->GetCapa(Capa::ATTACHMENTS_ACTIONS))
 		{
 			return $this->FalseResponse(__FUNCTION__);
 		}
@@ -82,7 +87,7 @@ class User extends \RainLoop\Actions
 		$bError = false;
 		$aData = false;
 
-		if (\is_array($aHashes) && 0 < \count($aHashes))
+		if (\is_array($aHashes) && \count($aHashes))
 		{
 			$aData = array();
 			foreach ($aHashes as $sZipHash)
@@ -101,7 +106,7 @@ class User extends \RainLoop\Actions
 		}
 
 		$oFilesProvider = $this->FilesProvider();
-		if (!empty($sAction) && !$bError && \is_array($aData) && 0 < \count($aData) &&
+		if (!empty($sAction) && !$bError && \is_array($aData) && \count($aData) &&
 			$oFilesProvider && $oFilesProvider->IsActive())
 		{
 			$bError = false;
@@ -109,7 +114,7 @@ class User extends \RainLoop\Actions
 			{
 				case 'zip':
 
-					$sZipHash = \MailSo\Base\Utils::Md5Rand();
+					$sZipHash = \MailSo\Base\Utils::Sha1Rand();
 					$sZipFileName = $oFilesProvider->GenerateLocalFullFileName($oAccount, $sZipHash);
 
 					if (!empty($sZipFileName)) {
@@ -117,64 +122,64 @@ class User extends \RainLoop\Actions
 							$oZip = new \ZipArchive();
 							$oZip->open($sZipFileName, \ZIPARCHIVE::CREATE | \ZIPARCHIVE::OVERWRITE);
 							$oZip->setArchiveComment('SnappyMail/'.APP_VERSION);
-
-							foreach ($aData as $aItem)
-							{
+							foreach ($aData as $aItem) {
 								$sFileName = (string) (isset($aItem['FileName']) ? $aItem['FileName'] : 'file.dat');
 								$sFileHash = (string) (isset($aItem['FileHash']) ? $aItem['FileHash'] : '');
-
-								if (!empty($sFileHash))
-								{
+								if (!empty($sFileHash)) {
 									$sFullFileNameHash = $oFilesProvider->GetFileName($oAccount, $sFileHash);
-									if (!$oZip->addFile($sFullFileNameHash, $sFileName))
-									{
+									if (!$oZip->addFile($sFullFileNameHash, $sFileName)) {
 										$bError = true;
 									}
 								}
 							}
 
-							if (!$bError)
-							{
+							if (!$bError) {
 								$bError = !$oZip->close();
-							}
-							else
-							{
+							} else {
 								$oZip->close();
 							}
+/*
+						} else {
+							@\unlink($sZipFileName);
+							$oZip = new \SnappyMail\Stream\ZIP($sZipFileName);
+//							$oZip->setArchiveComment('SnappyMail/'.APP_VERSION);
+							foreach ($aData as $aItem) {
+								$sFileName = (string) (isset($aItem['FileName']) ? $aItem['FileName'] : 'file.dat');
+								$sFileHash = (string) (isset($aItem['FileHash']) ? $aItem['FileHash'] : '');
+								if (!empty($sFileHash)) {
+									$sFullFileNameHash = $oFilesProvider->GetFileName($oAccount, $sFileHash);
+									if (!$oZip->addFile($sFullFileNameHash, $sFileName)) {
+										$bError = true;
+									}
+								}
+							}
+							$oZip->close();
+*/
 						} else {
 							@\unlink($sZipFileName);
 							$oZip = new \PharData($sZipFileName . '.zip', 0, null, \Phar::ZIP);
 							$oZip->compressFiles(\Phar::GZ);
-
-							foreach ($aData as $aItem)
-							{
+							foreach ($aData as $aItem) {
 								$sFileName = (isset($aItem['FileName']) ? (string) $aItem['FileName'] : 'file.dat');
 								$sFileHash = (isset($aItem['FileHash']) ? (string) $aItem['FileHash'] : '');
-
-								if ($sFileHash)
-								{
+								if ($sFileHash) {
 									$sFullFileNameHash = $oFilesProvider->GetFileName($oAccount, $sFileHash);
 									$oZip->addFile($sFullFileNameHash, $sFileName);
 								}
 							}
-
 							$oZip->compressFiles(\Phar::GZ);
-
 							unset($oZip);
 							\rename($sZipFileName . '.zip', $sZipFileName);
 						}
 
-						foreach ($aData as $aItem)
-						{
+						foreach ($aData as $aItem) {
 							$sFileHash = (isset($aItem['FileHash']) ? (string) $aItem['FileHash'] : '');
-							if ($sFileHash)
-							{
+							if ($sFileHash) {
 								$oFilesProvider->Clear($oAccount, $sFileHash);
 							}
 						}
 
-						if (!$bError)
-						{
+						if (!$bError) {
 							$mResult = array(
 								'FileHash' => Utils::EncodeKeyValuesQ(array(
 									'V' => APP_VERSION,
@@ -210,20 +215,9 @@ class User extends \RainLoop\Actions
 
 	public function DoLogout() : array
 	{
-		$oAccount = $this->getAccountFromToken(false);
-		if ($oAccount)
-		{
-			if ($oAccount->SignMe())
-			{
-				$this->ClearSignMeData($oAccount);
-			}
-
-			if (!$oAccount->IsAdditionalAccount())
-			{
-				Utils::ClearCookie(self::AUTH_SPEC_TOKEN_KEY);
-			}
-		}
-
+		$bMain = true; // empty($_COOKIE[self::AUTH_ADDITIONAL_TOKEN_KEY]);
+		$this->Logout($bMain);
+		$bMain && $this->ClearSignMeData();
 		return $this->TrueResponse(__FUNCTION__);
 	}
 
@@ -235,11 +229,9 @@ class User extends \RainLoop\Actions
 
 		$bMainCache = false;
 		$bFilesCache = false;
-		$bVersionsCache = false;
 
-		$iOneDay1 = 60 * 60 * 23;
-		$iOneDay2 = 60 * 60 * 25;
-		$iOneDay3 = 60 * 60 * 30;
+		$iOneDay1 = 3600 * 23;
+		$iOneDay2 = 3600 * 25;
 
 		$sTimers = $this->StorageProvider()->Get(null,
 			\RainLoop\Providers\Storage\Enumerations\StorageType::NOBODY, 'Cache/Timers', '');
@@ -248,7 +240,6 @@ class User extends \RainLoop\Actions
 
 		$iMainCacheTime = !empty($aTimers[0]) && \is_numeric($aTimers[0]) ? (int) $aTimers[0] : 0;
 		$iFilesCacheTime = !empty($aTimers[1]) && \is_numeric($aTimers[1]) ? (int) $aTimers[1] : 0;
-		$iVersionsCacheTime = !empty($aTimers[2]) && \is_numeric($aTimers[2]) ? (int) $aTimers[2] : 0;
 
 		if (0 === $iMainCacheTime || $iMainCacheTime + $iOneDay1 < \time())
 		{
@@ -262,19 +253,13 @@ class User extends \RainLoop\Actions
 			$iFilesCacheTime = \time();
 		}
 
-		if (0 === $iVersionsCacheTime || $iVersionsCacheTime + $iOneDay3 < \time())
-		{
-			$bVersionsCache = true;
-			$iVersionsCacheTime = \time();
-		}
-
-		if ($bMainCache || $bFilesCache || $bVersionsCache)
+		if ($bMainCache || $bFilesCache)
 		{
 			if (!$this->StorageProvider()->Put(null,
 				\RainLoop\Providers\Storage\Enumerations\StorageType::NOBODY, 'Cache/Timers',
-				\implode(',', array($iMainCacheTime, $iFilesCacheTime, $iVersionsCacheTime))))
+				\implode(',', array($iMainCacheTime, $iFilesCacheTime))))
 			{
-				$bMainCache = $bFilesCache = $bVersionsCache = false;
+				$bMainCache = $bFilesCache = false;
 			}
 		}
 
@@ -283,6 +268,10 @@ class User extends \RainLoop\Actions
 			$this->Logger()->Write('Cacher GC: Begin');
 			$this->Cacher()->GC(48);
 			$this->Logger()->Write('Cacher GC: End');
+
+			$this->Logger()->Write('Storage GC: Begin');
+			$this->StorageProvider()->GC();
+			$this->Logger()->Write('Storage GC: End');
 		}
 		else if ($bFilesCache)
 		{
@@ -299,10 +288,6 @@ class User extends \RainLoop\Actions
 	public function DoSettingsUpdate() : array
 	{
 		$oAccount = $this->getAccountFromToken();
-		if (!$this->GetCapa(false, Capa::SETTINGS, $oAccount))
-		{
-			return $this->FalseResponse(__FUNCTION__);
-		}
 
 		$self = $this;
 		$oConfig = $this->Config();
@@ -321,7 +306,7 @@ class User extends \RainLoop\Actions
 			$oSettings->SetConf('Language', $this->ValidateLanguage($oConfig->Get('webmail', 'language', 'en')));
 		}
 
-		if ($this->GetCapa(false, Capa::THEMES, $oAccount))
+		if ($this->GetCapa(Capa::THEMES))
 		{
 			$this->setSettingsFromParams($oSettingsLocal, 'Theme', 'string', function ($sTheme) use ($self) {
 				return $self->ValidateTheme($sTheme);
@@ -332,8 +317,8 @@ class User extends \RainLoop\Actions
 			$oSettingsLocal->SetConf('Theme', $this->ValidateTheme($oConfig->Get('webmail', 'theme', 'Default')));
 		}
 
-		$this->setSettingsFromParams($oSettings, 'MPP', 'int', function ($iValue) {
-			return (int) (\in_array($iValue, array(10, 20, 30, 50, 100, 150, 200, 300)) ? $iValue : 20);
+		$this->setSettingsFromParams($oSettings, 'MessagesPerPage', 'int', function ($iValue) {
+			return \min(50, \max(10, $iValue));
 		});
 
 		$this->setSettingsFromParams($oSettings, 'Layout', 'int', function ($iValue) {
@@ -343,8 +328,15 @@ class User extends \RainLoop\Actions
 		});
 
 		$this->setSettingsFromParams($oSettings, 'EditorDefaultType', 'string');
+		$this->setSettingsFromParams($oSettings, 'requestReadReceipt', 'bool');
+		$this->setSettingsFromParams($oSettings, 'requestDsn', 'bool');
+		$this->setSettingsFromParams($oSettings, 'pgpSign', 'bool');
+		$this->setSettingsFromParams($oSettings, 'pgpEncrypt', 'bool');
+
+		$this->setSettingsFromParams($oSettings, 'ViewHTML', 'bool');
 		$this->setSettingsFromParams($oSettings, 'ShowImages', 'bool');
 		$this->setSettingsFromParams($oSettings, 'RemoveColors', 'bool');
+		$this->setSettingsFromParams($oSettings, 'ListInlineAttachments', 'bool');
 		$this->setSettingsFromParams($oSettings, 'ContactsAutosave', 'bool');
 		$this->setSettingsFromParams($oSettings, 'DesktopNotifications', 'bool');
 		$this->setSettingsFromParams($oSettings, 'SoundNotification', 'bool');
@@ -352,10 +344,18 @@ class User extends \RainLoop\Actions
 		$this->setSettingsFromParams($oSettings, 'UseCheckboxesInList', 'bool');
 		$this->setSettingsFromParams($oSettings, 'AllowDraftAutosave', 'bool');
 		$this->setSettingsFromParams($oSettings, 'AutoLogout', 'int');
+		$this->setSettingsFromParams($oSettings, 'MessageReadDelay', 'int');
+		$this->setSettingsFromParams($oSettings, 'MsgDefaultAction', 'int');
+
+		$this->setSettingsFromParams($oSettings, 'Resizer4Width', 'int');
+		$this->setSettingsFromParams($oSettings, 'Resizer5Width', 'int');
+		$this->setSettingsFromParams($oSettings, 'Resizer5Height', 'int');
 
 		$this->setSettingsFromParams($oSettingsLocal, 'UseThreads', 'bool');
 		$this->setSettingsFromParams($oSettingsLocal, 'ReplySameFolder', 'bool');
 		$this->setSettingsFromParams($oSettingsLocal, 'HideUnsubscribed', 'bool');
+		$this->setSettingsFromParams($oSettingsLocal, 'HideDeleted', 'bool');
+		$this->setSettingsFromParams($oSettingsLocal, 'UnhideKolabFolders', 'bool');
 
 		return $this->DefaultResponse(__FUNCTION__,
 			$this->SettingsProvider()->Save($oAccount, $oSettings) &&
@@ -366,14 +366,14 @@ class User extends \RainLoop\Actions
 	{
 		$oAccount = $this->initMailClientConnection();
 
-		if (!$this->GetCapa(false, Capa::QUOTA, $oAccount))
+		if (!$this->GetCapa(Capa::QUOTA))
 		{
 			return $this->DefaultResponse(__FUNCTION__, array(0, 0, 0, 0));
 		}
 
 		try
 		{
-			$aQuota = $this->MailClient()->Quota();
+			$aQuota = $this->MailClient()->QuotaRoot();
 		}
 		catch (\Throwable $oException)
 		{
@@ -402,7 +402,7 @@ class User extends \RainLoop\Actions
 
 		$this->Plugins()->RunHook('json.suggestions-pre', array(&$aResult, $sQuery, $oAccount, $iLimit));
 
-		if ($iLimit > \count($aResult) && 0 < \strlen($sQuery))
+		if ($iLimit > \count($aResult) && \strlen($sQuery))
 		{
 			try
 			{
@@ -410,8 +410,8 @@ class User extends \RainLoop\Actions
 				$oAddressBookProvider = $this->AddressBookProvider($oAccount);
 				if ($oAddressBookProvider && $oAddressBookProvider->IsActive())
 				{
-					$aSuggestions = $oAddressBookProvider->GetSuggestions($oAccount->ParentEmailHelper(), $sQuery, $iLimit);
-					if (0 === \count($aResult))
+					$aSuggestions = $oAddressBookProvider->GetSuggestions($sQuery, $iLimit);
+					if (!\count($aResult))
 					{
 						$aResult = $aSuggestions;
 					}
@@ -427,13 +427,13 @@ class User extends \RainLoop\Actions
 			}
 		}
 
-		if ($iLimit > \count($aResult) && 0 < \strlen($sQuery))
+		if ($iLimit > \count($aResult) && \strlen($sQuery))
 		{
 			$oSuggestionsProvider = $this->SuggestionsProvider();
 			if ($oSuggestionsProvider && $oSuggestionsProvider->IsActive())
 			{
 				$aSuggestionsProviderResult = $oSuggestionsProvider->Process($oAccount, $sQuery, $iLimit);
-				if (\is_array($aSuggestionsProviderResult) && 0 < \count($aSuggestionsProviderResult))
+				if (\is_array($aSuggestionsProviderResult) && \count($aSuggestionsProviderResult))
 				{
 					$aResult = \array_merge($aResult, $aSuggestionsProviderResult);
 				}
@@ -458,48 +458,11 @@ class User extends \RainLoop\Actions
 		return $this->DefaultResponse(__FUNCTION__, $aResult);
 	}
 
-	public function DoComposeUploadExternals() : array
-	{
-		$oAccount = $this->getAccountFromToken();
-
-		$mResult = false;
-		$aExternals = $this->GetActionParam('Externals', array());
-		if (\is_array($aExternals) && 0 < \count($aExternals))
-		{
-			$oHttp = \MailSo\Base\Http::SingletonInstance();
-
-			$mResult = array();
-			foreach ($aExternals as $sUrl)
-			{
-				$mResult[$sUrl] = '';
-
-				$sTempName = \md5($sUrl);
-
-				$iCode = 0;
-				$sContentType = '';
-
-				$rFile = $this->FilesProvider()->GetFile($oAccount, $sTempName, 'wb+');
-				if ($rFile && $oHttp->SaveUrlToFile($sUrl, $rFile, '', $sContentType, $iCode, $this->Logger(), 60,
-						$this->Config()->Get('labs', 'curl_proxy', ''), $this->Config()->Get('labs', 'curl_proxy_auth', '')))
-				{
-					$mResult[$sUrl] = $sTempName;
-				}
-
-				if (\is_resource($rFile))
-				{
-					\fclose($rFile);
-				}
-			}
-		}
-
-		return $this->DefaultResponse(__FUNCTION__, $mResult);
-	}
-
 	public function DoClearUserBackground() : array
 	{
 		$oAccount = $this->getAccountFromToken();
 
-		if (!$this->GetCapa(false, Capa::USER_BACKGROUND, $oAccount))
+		if (!$this->GetCapa(Capa::USER_BACKGROUND))
 		{
 			return $this->FalseResponse(__FUNCTION__);
 		}
@@ -520,32 +483,16 @@ class User extends \RainLoop\Actions
 			$this->SettingsProvider()->Save($oAccount, $oSettings) : false);
 	}
 
-	protected function ClearSignMeData(Model\Account $oAccount) : void
-	{
-		if ($oAccount) {
-			Utils::ClearCookie(self::AUTH_SIGN_ME_TOKEN_KEY);
-			$this->StorageProvider()->Clear($oAccount,
-				\RainLoop\Providers\Storage\Enumerations\StorageType::CONFIG,
-				'sign_me'
-			);
-		}
-	}
-
-	private function generateSignMeToken(string $sEmail) : string
-	{
-		return \MailSo\Base\Utils::Md5Rand(APP_SALT.$sEmail);
-	}
-
 	private function getMimeFileByHash(\RainLoop\Model\Account $oAccount, string $sHash) : array
 	{
 		$aValues = $this->getDecodedRawKeyValue($sHash);
 
-		$sFolder = isset($aValues['Folder']) ? $aValues['Folder'] : '';
-		$iUid = (int) isset($aValues['Uid']) ? $aValues['Uid'] : 0;
-		$sMimeIndex = (string) isset($aValues['MimeIndex']) ? $aValues['MimeIndex'] : '';
+		$sFolder = isset($aValues['Folder']) ? (string) $aValues['Folder'] : '';
+		$iUid = isset($aValues['Uid']) ? (int) $aValues['Uid'] : 0;
+		$sMimeIndex = isset($aValues['MimeIndex']) ? (string) $aValues['MimeIndex'] : '';
 
-		$sContentTypeIn = (string) isset($aValues['MimeType']) ? $aValues['MimeType'] : '';
-		$sFileNameIn = (string) isset($aValues['FileName']) ? $aValues['FileName'] : '';
+		$sContentTypeIn = isset($aValues['MimeType']) ? (string) $aValues['MimeType'] : '';
+		$sFileNameIn = isset($aValues['FileName']) ? (string) $aValues['FileName'] : '';
 
 		$oFileProvider = $this->FilesProvider();
 
@@ -558,7 +505,7 @@ class User extends \RainLoop\Actions
 
 				if ($oAccount && \is_resource($rResource))
 				{
-					$sHash = \MailSo\Base\Utils::Md5Rand($sFileNameIn.'~'.$sContentTypeIn);
+					$sHash = \MailSo\Base\Utils::Sha1Rand($sFileNameIn.'~'.$sContentTypeIn);
 					$rTempResource = $oFileProvider->GetFile($oAccount, $sHash, 'wb+');
 
 					if (\is_resource($rTempResource))
@@ -572,7 +519,7 @@ class User extends \RainLoop\Actions
 					}
 				}
 
-			}, $sFolder, $iUid, true, $sMimeIndex);
+			}, $sFolder, $iUid, $sMimeIndex);
 
 		$aValues['FileHash'] = '';
 		if ($mResult)
@@ -583,7 +530,7 @@ class User extends \RainLoop\Actions
 		return $aValues;
 	}
 
-	private function setSettingsFromParams(\RainLoop\Settings $oSettings, string $sConfigName, string $sType = 'string', ?callable $mStringCallback = null) : void
+	private function setSettingsFromParams(\RainLoop\Settings $oSettings, string $sConfigName, string $sType = 'string', ?callable $cCallback = null) : void
 	{
 		if ($this->HasActionParam($sConfigName))
 		{
@@ -593,21 +540,22 @@ class User extends \RainLoop\Actions
 				default:
 				case 'string':
 					$sValue = (string) $sValue;
-					if ($mStringCallback && is_callable($mStringCallback))
-					{
-						$sValue = call_user_func($mStringCallback, $sValue);
+					if ($cCallback) {
+						$sValue = $cCallback($sValue);
 					}
-
 					$oSettings->SetConf($sConfigName, (string) $sValue);
 					break;
 
 				case 'int':
 					$iValue = (int) $sValue;
+					if ($cCallback) {
+						$sValue = $cCallback($iValue);
+					}
 					$oSettings->SetConf($sConfigName, $iValue);
 					break;
 
 				case 'bool':
-					$oSettings->SetConf($sConfigName, '1' === (string) $sValue);
+					$oSettings->SetConf($sConfigName, !empty($sValue) && 'false' !== $sValue);
 					break;
 			}
 		}

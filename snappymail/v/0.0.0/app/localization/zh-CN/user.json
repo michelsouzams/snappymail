@@ -20,14 +20,19 @@
 		"NAME": "名称",
 		"NONE": "无",
 		"NOT_SPAM": "这不是垃圾邮件",
+		"USERNAME": "用户名",
 		"PASSWORD": "密码",
 		"REPLY_TO": "回复",
 		"SAVE": "保存",
+		"SAVE_CHANGES": "Save changes?",
 		"SEARCH": "搜索",
 		"SPAM": "这是垃圾邮件",
 		"SUBJECT": "主题",
 		"TEST": "测试",
-		"TO": "发送到"
+		"TO": "发送到",
+		"SERVER_MESSAGE": "Server message",
+		"YES": "是",
+		"NO": "否"
 	},
 	"LOGIN": {
 		"LABEL_LOGIN": "登录",
@@ -45,27 +50,24 @@
 	},
 	"SEARCH": {
 		"TITLE_ADV": "高级搜索",
-		"LABEL_ADV_TEXT": "内容",
-		"LABEL_ADV_HAS_ATTACHMENT": "有附件",
-		"LABEL_ADV_HAS_ATTACHMENTS": "有附件",
-		"LABEL_ADV_FLAGGED": "标记",
-		"LABEL_ADV_UNSEEN": "不可见",
-		"LABEL_ADV_DATE": "日期",
-		"LABEL_ADV_DATE_ALL": "所有邮件",
-		"LABEL_ADV_DATE_3_DAYS": "3天以内",
-		"LABEL_ADV_DATE_7_DAYS": "1周以内",
-		"LABEL_ADV_DATE_MONTH": "1个月以内",
-		"LABEL_ADV_DATE_3_MONTHS": "3个月以内",
-		"LABEL_ADV_DATE_6_MONTHS": "半年以内",
-		"LABEL_ADV_DATE_YEAR": "1年以内"
-	},
-	"PREVIEW_POPUP": {
-		"FULLSCREEN": "切换全屏",
-		"ZOOM": "放大\/缩小",
-		"CLOSE": "关闭 (Esc)",
-		"GALLERY_PREV": "向前 (左箭头键)",
-		"GALLERY_NEXT": "向后 (右箭头键)",
-		"GALLERY_COUNTER": "%curr% \/ %total%"
+		"TEXT": "内容",
+		"HAS_ATTACHMENT": "有附件",
+		"FLAGGED": "标记",
+		"UNSEEN": "不可见",
+		"DATE": "日期",
+		"DATE_ALL": "所有邮件",
+		"DATE_3_DAYS": "3天以内",
+		"DATE_7_DAYS": "1周以内",
+		"DATE_MONTH": "1个月以内",
+		"DATE_3_MONTHS": "3个月以内",
+		"DATE_6_MONTHS": "半年以内",
+		"DATE_YEAR": "1年以内",
+		"SUBFOLDERS": "Subfolders",
+		"SUBFOLDERS_NONE": "None",
+		"SUBFOLDERS_SUBTREE": "All",
+		"SUBFOLDERS_SUBTREE_ONE": "One level",
+		"REPLIED": "已回答",
+		"KEYWORD": "Tag"
 	},
 	"FOLDER_LIST": {
 		"BUTTON_COMPOSE": "写邮件",
@@ -99,7 +101,6 @@
 		"EMPTY_SEARCH_LIST": "未找到您想要的。",
 		"SEARCH_RESULT_FOR": "搜索 \"%SEARCH%\" 的结果",
 		"BACK_TO_MESSAGE_LIST": "回到信息列表",
-		"EMPTY_SUBJECT_TEXT": "(无主题)",
 		"PUT_MESSAGE_HERE": "在这里查看邮件",
 		"TODAY_AT": "今日于 %TIME%",
 		"YESTERDAY_AT": "昨天 %TIME%",
@@ -132,6 +133,8 @@
 		"BUTTON_THREAD_MORE": "更多信息",
 		"MENU_HEADERS": "显示详细信息",
 		"MENU_VIEW_ORIGINAL": "显示原始内容",
+		"HTML_VIEW": "View HTML message",
+		"PLAIN_VIEW": "View plain text message",
 		"MENU_DOWNLOAD_ORIGINAL": "作为 .eml 文件下载",
 		"MENU_FILTER_SIMILAR": "筛选类似邮件",
 		"MENU_PRINT": "打印邮件",
@@ -142,10 +145,20 @@
 		"PRINT_LABEL_ATTACHMENTS": "附件",
 		"MESSAGE_VIEW_DESC": "在此查看列表中选中的邮件。",
 		"MESSAGE_VIEW_MOVE_DESC": "点击左侧面板的文件夹作为目的地",
-		"PGP_SIGNED_MESSAGE_DESC": "由 OpenPGP 签名 (点击验证)",
-		"PGP_ENCRYPTED_MESSAGE_DESC": "由 OpenPGP 加密 (点击解密)",
 		"LINK_DOWNLOAD_AS_ZIP": "下载为zip压缩包",
-		"SPAM_SCORE": "垃圾邮件分数"
+		"SPAM_SCORE": "垃圾邮件分数",
+		"HAS_VIRUS_WARNING": "警告：检测到病毒",
+		"TAGS": "Tags",
+		"NEW_TAG": "New tag"
+	},
+	"MESSAGE_TAGS": {
+		"$important": "Important",
+		"$todo": "To Do",
+		"$label1": "Important",
+		"$label2": "Work",
+		"$label3": "Personal",
+		"$label4": "To Do",
+		"$label5": "Later"
 	},
 	"READ_RECEIPT": {
 		"SUBJECT": "送达回执 - %SUBJECT%",
@@ -155,6 +168,17 @@
 		"SEARCHING_DESC": "搜索中……"
 	},
 	"CONTACTS": {
+		"TAB_CONTACT": "Contact",
+		"TAB_LOCATIONS": "Locations",
+		"TAB_BUSINESS": "Business",
+		"LABEL_ORGANIZATION": "Organization",
+		"LABEL_DEPARTMENT": "Department",
+		"LABEL_TITLE": "Title",
+		"TAB_CRYPTO": "Crypto",
+		"ASK": "Ask",
+		"NEVER": "Never",
+		"ALWAYS": "Always",
+		"ALWAYS_IF_POSSIBLE": "Always if possible",
 		"BUTTON_ADD_CONTACT": "添加联系人",
 		"BUTTON_CREATE_CONTACT": "新增联系人",
 		"BUTTON_UPDATE_CONTACT": "更新联系人",
@@ -166,21 +190,15 @@
 		"EMPTY_SEARCH": "没找到联系人",
 		"CLEAR_SEARCH": "清除搜索",
 		"CONTACT_VIEW_DESC": "在此查看在列表中选中的联系人。",
-		"LABEL_PHONE": "电话",
-		"LABEL_WEB": "网站",
 		"LABEL_BIRTHDAY": "生日",
-		"LINK_ADD_EMAIL": "添加 Email 地址",
-		"LINK_ADD_PHONE": "添加电话",
-		"LINK_BIRTHDAY": "生日",
 		"PLACEHOLDER_ENTER_DISPLAY_NAME": "显示名称",
 		"PLACEHOLDER_ENTER_LAST_NAME": "姓",
 		"PLACEHOLDER_ENTER_FIRST_NAME": "名",
 		"PLACEHOLDER_ENTER_NICK_NAME": "昵称",
 		"LABEL_READ_ONLY": "只读",
-		"LABEL_SHARE": "分享",
 		"ADD_MENU_LABEL": "添加",
 		"ADD_MENU_NICKNAME": "昵称",
-		"ADD_MENU_NOTES": "笔记",
+		"ADD_MENU_NOTE": "笔记",
 		"ADD_MENU_PHONE": "电话",
 		"ADD_MENU_URL": "网址",
 		"ADD_MENU_ADDRESS": "地址",
@@ -207,12 +225,9 @@
 		"ATTACHMENTS_UPLOAD_ERROR_DESC": "还有附件正在上传。",
 		"BUTTON_REQUEST_READ_RECEIPT": "要求已读回执",
 		"BUTTON_MARK_AS_IMPORTANT": "标记为“重要”",
-		"BUTTON_OPEN_PGP": "OpenPGP (仅限纯文本)",
 		"BUTTON_REQUEST_DSN": "要求送达回执"
 	},
 	"POPUPS_ASK": {
-		"BUTTON_YES": "是",
-		"BUTTON_NO": "否",
 		"DESC_WANT_CLOSE_THIS_WINDOW": "你确定要关闭此窗口吗？",
 		"DESC_WANT_DELETE_MESSAGES": "你确定你要删除这条消息吗？"
 	},
@@ -245,31 +260,24 @@
 		"DANGER_DESC_HTML_2": "一旦操作执行，将不可中断和撤销！",
 		"TITLE_CLEARING_PROCESS": "文件夹清理中..."
 	},
-	"POPUPS_IMPORT_OPEN_PGP_KEY": {
-		"TITLE_IMPORT_OPEN_PGP_KEY": "导入 OpenPGP 密钥",
-		"BUTTON_IMPORT_OPEN_PGP_KEY": "导入"
-	},
-	"POPUPS_VIEW_OPEN_PGP_KEY": {
-		"TITLE_VIEW_OPEN_PGP_KEY": "查看 OpenPGP 密钥",
-		"BUTTON_SELECT": "选择"
-	},
-	"POPUPS_GENERATE_OPEN_PGP_KEYS": {
-		"TITLE_GENERATE_OPEN_PGP_KEYS": "生成 OpenPGP 密钥",
-		"LABEL_KEY_BIT_LENGTH": "密钥长度",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "生成"
-	},
-	"POPUPS_COMPOSE_OPEN_PGP": {
-		"TITLE_COMPOSE_OPEN_PGP": "OpenPGP 签名\/加密",
+	"OPENPGP": {
+		"POPUP_IMPORT_TITLE": "导入 OpenPGP 密钥",
+		"POPUP_IMPORT_BUTTON": "导入",
+		"POPUP_VIEW_TITLE": "查看 OpenPGP 密钥",
+		"POPUP_VIEW_BUTTON": "选择",
+		"POPUP_GENERATE_TITLE": "生成 OpenPGP 密钥",
+		"POPUP_GENERATE_BUTTON": "生成",
+		"LABEL_KEY_TYPE": "Type",
 		"LABEL_SIGN": "签名",
 		"LABEL_ENCRYPT": "加密",
-		"BUTTON_SIGN": "签名",
-		"BUTTON_ENCRYPT": "加密",
-		"BUTTON_SIGN_AND_ENCRYPT": "签名并加密"
-	},
-	"POPUPS_MESSAGE_OPEN_PGP": {
-		"TITLE_MESSAGE_OPEN_PGP": "OpenPGP 解密",
-		"LABEL_KEY": "私钥",
-		"BUTTON_DECRYPT": "解密"
+		"BUTTON_DECRYPT": "解密",
+		"BUTTON_VERIFY": "Verify",
+		"SIGNED_MESSAGE": "由 OpenPGP 签名",
+		"ENCRYPTED_MESSAGE": "由 OpenPGP 加密",
+		"STORE_IN_GNUPG": "Store on server in GnuPG",
+		"BACKUP_ON_SERVER": "Store (encrypted) on server",
+		"GOOD_SIGNATURE": "来自 %USER% 的可用签名",
+		"ERROR": "OpenPGP 错误： %ERROR%"
 	},
 	"POPUPS_FILTER": {
 		"TITLE_CREATE_FILTER": "创建筛选条件？",
@@ -329,10 +337,8 @@
 		"NOTIFICATION_ARCHIVE": "您没有选择“已归档邮件”文件夹来存储归档邮件。"
 	},
 	"TITLES": {
-		"LOGIN": "登录",
 		"MAILBOX": "邮箱",
-		"SETTINGS": "设置",
-		"COMPOSE": "写邮件"
+		"SETTINGS": "设置"
 	},
 	"UPLOAD": {
 		"ERROR_FILE_IS_TOO_BIG": "文件太大",
@@ -344,7 +350,8 @@
 		"ERROR_UNKNOWN": "未知上传文件错误"
 	},
 	"EDITOR": {
-		"TEXT_SWITCHER_PLAINT_TEXT": "HTML <-> TEXT"
+		"TEXT_SWITCHER_PLAIN_TEXT": "HTML <-> TEXT",
+		"TEXT_SWITCHER_SOURCE": "HTML <-> SOURCE"
 	},
 	"SETTINGS_LABELS": {
 		"LABEL_PERSONAL_NAME": "个人",
@@ -352,21 +359,20 @@
 		"LABEL_CONTACTS_NAME": "联系人",
 		"LABEL_FOLDERS_NAME": "文件夹",
 		"LABEL_ACCOUNTS_NAME": "账户",
-		"LABEL_IDENTITIES_NAME": "身份",
 		"LABEL_FILTERS_NAME": "筛选条件",
-		"LABEL_TEMPLATES_NAME": "模版",
 		"LABEL_SECURITY_NAME": "安全",
 		"LABEL_THEMES_NAME": "主题"
 	},
 	"SETTINGS_FILTERS": {
 		"LEGEND_FILTERS": "筛选器",
+		"SIMPLE": "Simple",
+		"ADVANCED": "Advanced",
 		"BUTTON_ADD_SCRIPT": "Add a Script",
 		"SUBNAME_MOVE_TO": "移动到 \"%FOLDER%\"",
 		"SUBNAME_FORWARD_TO": "转发到 \"%EMAIL%\"",
 		"SUBNAME_REJECT": "拒绝",
 		"SUBNAME_VACATION_MESSAGE": "假期自动回复",
-		"SUBNAME_DISCARD": "取消",
-		"LOADING_PROCESS": "正在更新筛选规则列表"
+		"SUBNAME_DISCARD": "取消"
 	},
 	"SETTINGS_SECURITY": {
 		"LEGEND_SECURITY": "安全",
@@ -377,29 +383,34 @@
 	},
 	"SETTINGS_GENERAL": {
 		"LEGEND_GENERAL": "一般设置",
-		"LABEL_LANGUAGE": "语言",
-		"LABEL_IDENTITY": "身份",
-		"LABEL_LAYOUT": "布局",
-		"LABEL_LAYOUT_NO_SPLIT": "不分隔",
-		"LABEL_LAYOUT_VERTICAL_SPLIT": "垂直分隔",
-		"LABEL_LAYOUT_HORIZONTAL_SPLIT": "水平分隔",
-		"LABEL_EDITOR": "默认格式",
-		"LABEL_EDITOR_HTML": "html文本",
-		"LABEL_EDITOR_PLAIN": "普通文本",
-		"LABEL_EDITOR_HTML_FORCED": "强制HTML文本",
-		"LABEL_EDITOR_PLAIN_FORCED": "强制普通文本",
-		"LABEL_VIEW_OPTIONS": "视图选项",
-		"LABEL_USE_PREVIEW_PANE": "使用预览",
-		"LABEL_USE_CHECKBOXES_IN_LIST": "列表中显示多选框",
-		"LABEL_USE_THREADS": "使用对话",
-		"LABEL_REPLY_SAME_FOLDER": "将回复的邮件置于被回复的邮件所在的文件夹",
-		"LABEL_SHOW_IMAGES": "总是显示外部图片信息",
-		"LABEL_REMOVE_COLORS": "从消息中删除背景和文本颜色",
-		"LABEL_MESSAGE_PER_PAGE": "封邮件每页",
-		"LABEL_NOTIFICATIONS": "通知",
-		"LABEL_SOUND_NOTIFICATION": "提示音",
-		"LABEL_CHROME_NOTIFICATION_DESC": "显示新邮件弹窗",
-		"LABEL_CHROME_NOTIFICATION_DESC_DENIED": "(被浏览器阻止)"
+		"LANGUAGE": "语言",
+		"IDENTITY": "身份",
+		"LAYOUT": "布局",
+		"LAYOUT_NO_SPLIT": "不分隔",
+		"LAYOUT_VERTICAL_SPLIT": "垂直分隔",
+		"LAYOUT_HORIZONTAL_SPLIT": "水平分隔",
+		"EDITOR": "默认格式",
+		"EDITOR_HTML": "html文本",
+		"EDITOR_PLAIN": "普通文本",
+		"VIEW_OPTIONS": "视图选项",
+		"USE_PREVIEW_PANE": "使用预览",
+		"HIDE_DELETED_MESSAGES": "隱藏標記為刪除的郵件",
+		"USE_CHECKBOXES_IN_LIST": "列表中显示多选框",
+		"USE_THREADS": "使用对话",
+		"REPLY_SAME_FOLDER": "将回复的邮件置于被回复的邮件所在的文件夹",
+		"SHOW_IMAGES": "总是显示外部图片信息",
+		"PREFER_HTML": "Prefer HTML to plain text",
+		"PREFER_HTML_INFO": "Messages sometimes come in both formats. This option controls whether you want the HTML part or the plain text part to be displayed.",
+		"REMOVE_COLORS": "从消息中删除背景和文本颜色",
+		"MESSAGE_PER_PAGE": "封邮件每页",
+		"MARK_MESSAGE_READ_AFTER": "将消息标记为已读",
+		"MSG_DEFAULT_ACTION": "Default action",
+		"SECONDS": "秒",
+		"NOTIFICATIONS": "通知",
+		"SOUND_NOTIFICATION": "提示音",
+		"CHROME_NOTIFICATION_DESC": "显示新邮件弹窗",
+		"CHROME_NOTIFICATION_DESC_DENIED": "(被浏览器阻止)",
+		"LIST_INLINE_ATTACHMENTS": "Show inline attachments in list"
 	},
 	"SETTINGS_CONTACTS": {
 		"LABEL_CONTACTS_AUTOSAVE": "自动添加到你的地址簿",
@@ -407,7 +418,8 @@
 		"LABEL_CONTACTS_SYNC_ENABLE": "启用远程同步",
 		"LABEL_CONTACTS_SYNC_SERVER": "服务器",
 		"LABEL_CONTACTS_SYNC_AB_URL": "地址簿 URL",
-		"LABEL_CONTACTS_SYNC_USER": "用户名"
+		"LABEL_CONTACTS_SYNC_USER": "用户名",
+		"SYNC_READ": "Read only"
 	},
 	"SETTINGS_THEMES": {
 		"LEGEND_THEMES": "主题",
@@ -436,7 +448,15 @@
 		"HELP_DELETE_FOLDER": "删除文件夹",
 		"HELP_SHOW_HIDE_FOLDER": "显示\/隐藏文件夹",
 		"HELP_CHECK_FOR_NEW_MESSAGES": "检查\/不检查新邮件",
-		"HIDE_UNSUBSCRIBED": "隐藏未订阅的文件夹"
+		"HIDE_UNSUBSCRIBED": "隐藏未订阅的文件夹",
+		"UNHIDE_KOLAB_FOLDERS": "Unhide Kolab folders",
+		"TYPE_CALENDAR": "日历",
+		"TYPE_CONFIGURATION": "配置",
+		"TYPE_CONTACTS": "联系人",
+		"TYPE_FILES": "文件",
+		"TYPE_JOURNAL": "日志",
+		"TYPE_NOTES": "笔记",
+		"TYPE_TASKS": "任务"
 	},
 	"SETTINGS_ACCOUNTS": {
 		"LEGEND_ACCOUNTS": "账户列表",
@@ -447,13 +467,13 @@
 		"LOADING_PROCESS": "更新账户列表中",
 		"DEFAULT_IDENTITY_LABEL": "默认"
 	},
-	"SETTINGS_OPEN_PGP": {
-		"BUTTON_ADD_OPEN_PGP_KEY": "导入 OpenPGP 密钥",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "生成 OpenPGP 密钥",
+	"SETTINGS_OPENPGP": {
+		"BUTTON_IMPORT_KEY": "导入 密钥",
+		"BUTTON_GENERATE_KEY_PAIR": "生成 密钥",
 		"TITLE_PRIVATE": "私有",
 		"TITLE_PUBLIC": "公开",
-		"GENERATE_ONLY_HTTPS": "仅限HTTPS",
-		"LABEL_ALLOW_DRAFT_AUTOSAVE": "自动保存草稿"
+		"LABEL_ALLOW_DRAFT_AUTOSAVE": "自动保存草稿",
+		"GET_MAILVELOPE": "Get Mailvelope browser add-on."
 	},
 	"SHORTCUTS_HELP": {
 		"LEGEND_SHORTCUTS_HELP": "快捷键说明",
@@ -483,7 +503,6 @@
 		"LABEL_BLOCKQUOTES_TOGGLE": "消息块引用切换",
 		"LABEL_THREAD_NEXT": "下一封往来邮件",
 		"LABEL_THREAD_PREV": "上一封往来邮件",
-		"LABEL_PRINT": "打印",
 		"LABEL_EXIT_FULLSCREEN": "退出全屏模式",
 		"LABEL_CLOSE_MESSAGE": "关闭独立邮件阅读模式",
 		"LABEL_SWITCH_TO_LIST": "切换到邮件列表",
@@ -494,25 +513,14 @@
 		"LABEL_SEND_MESSAGE": "发送邮件",
 		"LABEL_CLOSE_COMPOSE": "退出新邮件"
 	},
-	"PGP_NOTIFICATIONS": {
-		"NO_PUBLIC_KEYS_FOUND": "无法找到公钥",
-		"NO_PUBLIC_KEYS_FOUND_FOR": "无法找到 \"%EMAIL%\" 的公钥",
-		"NO_PRIVATE_KEY_FOUND": "无法找到私钥",
-		"NO_PRIVATE_KEY_FOUND_FOR": "无法找到 \"%EMAIL%\" 的私钥",
-		"ADD_A_PUBLICK_KEY": "添加公钥",
-		"SELECT_A_PRIVATE_KEY": "选择一个私钥",
-		"UNVERIFIRED_SIGNATURE": "未验证的签名",
-		"DECRYPTION_ERROR": "OpenPGP 解密出错",
-		"GOOD_SIGNATURE": "来自 %USER% 的可用签名",
-		"PGP_ERROR": "OpenPGP 错误： %ERROR%",
-		"SPECIFY_FROM_EMAIL": "请指定发件人邮箱地址",
-		"SPECIFY_AT_LEAST_ONE_RECIPIENT": "请指定至少一个收件人地址"
-	},
 	"NOTIFICATIONS": {
+		"REQUEST_ERROR": "Request failed",
+		"REQUEST_ABORTED": "Request is aborted",
+		"REQUEST_TIMEOUT": "Request timed out",
 		"INVALID_TOKEN": "无效标记",
 		"AUTH_ERROR": "认证失败",
-		"ACCESS_ERROR": "访问错误",
 		"CONNECTION_ERROR": "无法连接至服务器",
+		"DOMAIN_ALREADY_EXISTS": "域已经存在",
 		"DOMAIN_NOT_ALLOWED": "不允许此域名",
 		"ACCOUNT_NOT_ALLOWED": "不允许此账户",
 		"CONTACTS_SYNC_ERROR": "联系人同步错误",
@@ -535,17 +543,11 @@
 		"CANT_DELETE_NON_EMPTY_FOLDER": "无法删除非空文件夹",
 		"CANT_SUBSCRIBE_FOLDER": "无法订阅文件夹",
 		"CANT_UNSUBSCRIBE_FOLDER": "无法取消订阅文件夹",
-		"CANT_SAVE_SETTINGS": "无法保存设置",
-		"CANT_SAVE_PLUGIN_SETTINGS": "无法保存设置",
-		"DOMAIN_ALREADY_EXISTS": "域已经存在",
-		"CANT_INSTALL_PACKAGE": "安装包失败",
-		"CANT_DELETE_PACKAGE": "移除包失败",
-		"INVALID_PLUGIN_PACKAGE": "无效插件",
-		"UNSUPPORTED_PLUGIN_PACKAGE": "不支持的插件",
 		"DEMO_SEND_MESSAGE_ERROR": "出于安全考虑，测试账号无法发送外部邮件。",
 		"DEMO_ACCOUNT_ERROR": "出于安全考虑，测试账号无法进行此操作！",
 		"ACCOUNT_ALREADY_EXISTS": "账户已存在",
 		"ACCOUNT_DOES_NOT_EXIST": "账户不存在",
+		"ACCOUNT_SWITCH_FAILED": "Switch to account \"%EMAIL%\" failed",
 		"MAIL_SERVER_ERROR": "访问邮件服务器遇到错误。",
 		"INVALID_INPUT_ARGUMENT": "无效的参数输入",
 		"UNKNOWN_ERROR": "未知错误"

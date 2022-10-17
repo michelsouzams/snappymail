@@ -1,341 +1,49 @@
-import { ComposeType, FolderType } from 'Common/EnumsUser';
+import { MessageFlagsCache } from 'Common/Cache';
+import { Notification } from 'Common/Enums';
+import { MessageSetAction, ComposeType/*, FolderType*/ } from 'Common/EnumsUser';
+import { doc, createElement, elementById, dropdowns, dropdownVisibility, SettingsGet } from 'Common/Globals';
+import { plainToHtml } from 'Common/Html';
+import { getNotification } from 'Common/Translator';
 import { EmailModel } from 'Model/Email';
-import { encodeHtml } from 'Common/Html';
-import { isArray } from 'Common/Utils';
-import { createElement } from 'Common/Globals';
+import { MessageModel } from 'Model/Message';
+import { MessageUserStore } from 'Stores/User/Message';
+import { MessagelistUserStore } from 'Stores/User/Messagelist';
+import { SettingsUserStore } from 'Stores/User/Settings';
+import * as Local from 'Storage/Client';
+import { ThemeStore } from 'Stores/Theme';
+import Remote from 'Remote/User/Fetch';
+
+export const
+
+dropdownsDetectVisibility = (() =>
+	dropdownVisibility(!!dropdowns.find(item => item.classList.contains('show')))
+).debounce(50),
 
 /**
- * @param {(string|number)} value
- * @param {boolean=} includeZero = true
+ * @param {string} link
  * @returns {boolean}
  */
-export function isPosNumeric(value) {
-	return null != value && /^[0-9]*$/.test(value.toString());
-}
-
-/**
- * @param {string} text
- * @param {number=} len = 100
- * @returns {string}
- */
-function splitPlainText(text, len = 100) {
-	let prefix = '',
-		subText = '',
-		result = text,
-		spacePos = 0,
-		newLinePos = 0;
-
-	while (result.length > len) {
-		subText = result.substr(0, len);
-		spacePos = subText.lastIndexOf(' ');
-		newLinePos = subText.lastIndexOf('\n');
-
-		if (-1 !== newLinePos) {
-			spacePos = newLinePos;
-		}
-
-		if (-1 === spacePos) {
-			spacePos = len;
-		}
-
-		prefix += subText.substr(0, spacePos) + '\n';
-		result = result.substr(spacePos + 1);
-	}
-
-	return prefix + result;
-}
-
-/**
- * @param {string} html
- * @returns {string}
- */
-export function htmlToPlain(html) {
-	let pos = 0,
-		limit = 0,
-		iP1 = 0,
-		iP2 = 0,
-		iP3 = 0,
-		text = '';
-
-	const convertBlockquote = (blockquoteText) => {
-		blockquoteText = '> ' + blockquoteText.trim().replace(/\n/gm, '\n> ');
-		return blockquoteText.replace(/(^|\n)([> ]+)/gm, (...args) =>
-			args && 2 < args.length ? args[1] + args[2].replace(/[\s]/g, '').trim() + ' ' : ''
-		);
-	};
-
-	const convertDivs = (...args) => {
-		if (args && 1 < args.length) {
-			let divText = args[1].trim();
-			if (divText.length) {
-				divText = divText.replace(/<div[^>]*>([\s\S\r\n]*)<\/div>/gim, convertDivs);
-				divText = '\n' + divText.trim() + '\n';
-			}
-
-			return divText;
-		}
-
-		return '';
-	};
-
-	const
-		tpl = createElement('template'),
-		convertPre = (...args) =>
-			args && 1 < args.length
-				? args[1]
-						.toString()
-						.replace(/[\n]/gm, '<br/>')
-						.replace(/[\r]/gm, '')
-				: '',
-		fixAttibuteValue = (...args) => (args && 1 < args.length ? '' + args[1] + encodeHtml(args[2]) : ''),
-		convertLinks = (...args) => (args && 1 < args.length ? args[1].trim() : '');
-
-	tpl.innerHTML = html
-		.replace(/<p[^>]*><\/p>/gi, '')
-		.replace(/<pre[^>]*>([\s\S\r\n\t]*)<\/pre>/gim, convertPre)
-		.replace(/[\s]+/gm, ' ')
-		.replace(/((?:href|data)\s?=\s?)("[^"]+?"|'[^']+?')/gim, fixAttibuteValue)
-		.replace(/<br[^>]*>/gim, '\n')
-		.replace(/<\/h[\d]>/gi, '\n')
-		.replace(/<\/p>/gi, '\n\n')
-		.replace(/<ul[^>]*>/gim, '\n')
-		.replace(/<\/ul>/gi, '\n')
-		.replace(/<li[^>]*>/gim, ' * ')
-		.replace(/<\/li>/gi, '\n')
-		.replace(/<\/td>/gi, '\n')
-		.replace(/<\/tr>/gi, '\n')
-		.replace(/<hr[^>]*>/gim, '\n_______________________________\n\n')
-		.replace(/<div[^>]*>([\s\S\r\n]*)<\/div>/gim, convertDivs)
-		.replace(/<blockquote[^>]*>/gim, '\n__bq__start__\n')
-		.replace(/<\/blockquote>/gim, '\n__bq__end__\n')
-		.replace(/<a [^>]*>([\s\S\r\n]*?)<\/a>/gim, convertLinks)
-		.replace(/<\/div>/gi, '\n')
-		.replace(/&nbsp;/gi, ' ')
-		.replace(/&quot;/gi, '"')
-		.replace(/<[^>]*>/gm, '');
-
-	text = splitPlainText(tpl.content.textContent
-		.replace(/\n[ \t]+/gm, '\n')
-		.replace(/[\n]{3,}/gm, '\n\n')
-		.replace(/&gt;/gi, '>')
-		.replace(/&lt;/gi, '<')
-		.replace(/&amp;/gi, '&')
-	);
-
-	pos = 0;
-	limit = 800;
-
-	while (0 < limit) {
-		--limit;
-		iP1 = text.indexOf('__bq__start__', pos);
-		if (-1 < iP1) {
-			iP2 = text.indexOf('__bq__start__', iP1 + 5);
-			iP3 = text.indexOf('__bq__end__', iP1 + 5);
-
-			if ((-1 === iP2 || iP3 < iP2) && iP1 < iP3) {
-				text = text.substr(0, iP1) + convertBlockquote(text.substring(iP1 + 13, iP3)) + text.substr(iP3 + 11);
-				pos = 0;
-			} else if (-1 < iP2 && iP2 < iP3) {
-				pos = iP2 - 1;
-			} else {
-				pos = 0;
-			}
-		} else {
-			break;
-		}
-	}
-
-	return text.replace(/__bq__start__|__bq__end__/gm, '').trim();
-}
-
-/**
- * @param {string} plain
- * @param {boolean} findEmailAndLinksInText = false
- * @returns {string}
- */
-export function plainToHtml(plain) {
-	plain = plain.toString().replace(/\r/g, '');
-	plain = plain.replace(/^>[> ]>+/gm, ([match]) => (match ? match.replace(/[ ]+/g, '') : match));
-
-	let bIn = false,
-		bDo = true,
-		bStart = true,
-		aNextText = [],
-		aText = plain.split('\n');
-
-	do {
-		bDo = false;
-		aNextText = [];
-		aText.forEach(sLine => {
-			bStart = '>' === sLine.substr(0, 1);
-			if (bStart && !bIn) {
-				bDo = true;
-				bIn = true;
-				aNextText.push('~~~blockquote~~~');
-				aNextText.push(sLine.substr(1));
-			} else if (!bStart && bIn) {
-				if (sLine) {
-					bIn = false;
-					aNextText.push('~~~/blockquote~~~');
-					aNextText.push(sLine);
-				} else {
-					aNextText.push(sLine);
-				}
-			} else if (bStart && bIn) {
-				aNextText.push(sLine.substr(1));
-			} else {
-				aNextText.push(sLine);
-			}
+download = (link, name = "") => {
+	console.log('download: '+link);
+	// Firefox 98 issue https://github.com/the-djmaze/snappymail/issues/301
+	if (ThemeStore.isMobile() || /firefox/i.test(navigator.userAgent)) {
+		open(link, '_blank');
+		focus();
+	} else {
+		const oLink = createElement('a', {
+			href: link,
+			target: '_blank',
+			download: name
 		});
-
-		if (bIn) {
-			bIn = false;
-			aNextText.push('~~~/blockquote~~~');
-		}
-
-		aText = aNextText;
-	} while (bDo);
-
-	return aText.join('\n')
-		// .replace(/~~~\/blockquote~~~\n~~~blockquote~~~/g, '\n')
-		.replace(/&/g, '&amp;')
-		.replace(/>/g, '&gt;')
-		.replace(/</g, '&lt;')
-		.replace(/~~~blockquote~~~[\s]*/g, '<blockquote>')
-		.replace(/[\s]*~~~\/blockquote~~~/g, '</blockquote>')
-		.replace(/\n/g, '<br/>');
-}
-
-rl.Utils = {
-	htmlToPlain: htmlToPlain,
-	plainToHtml: plainToHtml
-};
-
-/**
- * @param {Array} aSystem
- * @param {Array} aList
- * @param {Array=} aDisabled
- * @param {Array=} aHeaderLines
- * @param {Function=} fDisableCallback
- * @param {Function=} fRenameCallback
- * @param {boolean=} bSystem
- * @param {boolean=} bBuildUnvisible
- * @returns {Array}
- */
-export function folderListOptionsBuilder(
-	aSystem,
-	aList,
-	aDisabled,
-	aHeaderLines,
-	fDisableCallback,
-	fRenameCallback,
-	bSystem,
-	bBuildUnvisible
-) {
-	let /**
-		 * @type {?FolderModel}
-		 */
-		bSep = false,
-		aResult = [];
-
-	const sDeepPrefix = '\u00A0\u00A0\u00A0';
-
-	bBuildUnvisible = undefined === bBuildUnvisible ? false : !!bBuildUnvisible;
-	bSystem = null == bSystem ? 0 < aSystem.length : bSystem;
-	fDisableCallback = null != fDisableCallback ? fDisableCallback : null;
-	fRenameCallback = null != fRenameCallback ? fRenameCallback : null;
-
-	if (!isArray(aDisabled)) {
-		aDisabled = [];
+		doc.body.appendChild(oLink).click();
+		oLink.remove();
 	}
-
-	if (!isArray(aHeaderLines)) {
-		aHeaderLines = [];
-	}
-
-	aHeaderLines.forEach(line => {
-		aResult.push({
-			id: line[0],
-			name: line[1],
-			system: false,
-			dividerbar: false,
-			disabled: false
-		});
-	});
-
-	bSep = true;
-	aSystem.forEach(oItem => {
-		aResult.push({
-			id: oItem.fullNameRaw,
-			name: fRenameCallback ? fRenameCallback(oItem) : oItem.name(),
-			system: true,
-			dividerbar: bSep,
-			disabled:
-				!oItem.selectable ||
-				aDisabled.includes(oItem.fullNameRaw) ||
-				(fDisableCallback ? fDisableCallback(oItem) : false)
-		});
-		bSep = false;
-	});
-
-	bSep = true;
-	aList.forEach(oItem => {
-		// if (oItem.subscribed() || !oItem.exists || bBuildUnvisible)
-		if (
-			(oItem.subscribed() || !oItem.exists || bBuildUnvisible) &&
-			(oItem.selectable || oItem.hasSubscribedSubfolders())
-		) {
-			if (FolderType.User === oItem.type() || !bSystem || oItem.hasSubscribedSubfolders()) {
-				aResult.push({
-					id: oItem.fullNameRaw,
-					name:
-						sDeepPrefix.repeat(oItem.deep + 1) +
-						(fRenameCallback ? fRenameCallback(oItem) : oItem.name()),
-					system: false,
-					dividerbar: bSep,
-					disabled:
-						!oItem.selectable ||
-						aDisabled.includes(oItem.fullNameRaw) ||
-						(fDisableCallback ? fDisableCallback(oItem) : false)
-				});
-				bSep = false;
-			}
-		}
-
-		if (oItem.subscribed() && oItem.subFolders.length) {
-			aResult = aResult.concat(
-				folderListOptionsBuilder(
-					[],
-					oItem.subFolders(),
-					aDisabled,
-					[],
-					fDisableCallback,
-					fRenameCallback,
-					bSystem,
-					bBuildUnvisible
-				)
-			);
-		}
-	});
-
-	return aResult;
-}
-
-/**
- * Call the Model/CollectionModel onDestroy() to clear knockout functions/objects
- * @param {Object|Array} objectOrObjects
- * @returns {void}
- */
-export function delegateRunOnDestroy(objectOrObjects) {
-	objectOrObjects && (isArray(objectOrObjects) ? objectOrObjects : [objectOrObjects]).forEach(
-		obj => obj.onDestroy && obj.onDestroy()
-	);
-}
+},
 
 /**
  * @returns {function}
  */
-export function computedPaginatorHelper(koCurrentPage, koPageCount) {
+computedPaginatorHelper = (koCurrentPage, koPageCount) => {
 	return () => {
 		const currentPage = koCurrentPage(),
 			pageCount = koPageCount(),
@@ -349,11 +57,7 @@ export function computedPaginatorHelper(koCurrentPage, koPageCount) {
 					value: index.toString()
 				};
 
-				if (push) {
-					result.push(data);
-				} else {
-					result.unshift(data);
-				}
+				push ? result.push(data) : result.unshift(data);
 			};
 
 		let prev = 0,
@@ -416,71 +120,242 @@ export function computedPaginatorHelper(koCurrentPage, koPageCount) {
 
 		return result;
 	};
-}
+},
 
 /**
  * @param {string} mailToUrl
  * @returns {boolean}
  */
-export function mailToHelper(mailToUrl) {
-	if (
-		mailToUrl &&
-		'mailto:' ===
-			mailToUrl
-				.toString()
-				.substr(0, 7)
-				.toLowerCase()
-	) {
-		mailToUrl = mailToUrl.toString().substr(7);
+mailToHelper = mailToUrl => {
+	if ('mailto:' === mailToUrl?.slice(0, 7).toLowerCase()) {
+		mailToUrl = mailToUrl.slice(7).split('?');
 
-		let to = [],
-			params = {};
-
-		const email = mailToUrl.replace(/\?.+$/, ''),
-			query = mailToUrl.replace(/^[^?]*\?/, ''),
-			toEmailModel = value => null != value ? EmailModel.parseEmailLine(decodeURIComponent(value)) : null;
-
-		query.split('&').forEach(temp => {
-			temp = temp.split('=');
-			params[decodeURIComponent(temp[0])] = decodeURIComponent(temp[1]);
-		});
-
-		if (null != params.to) {
-			to = Object.values(
-				toEmailModel(email + ',' + params.to).reduce((result, value) => {
-					if (value) {
-						if (result[value.email]) {
-							if (!result[value.email].name) {
-								result[value.email] = value;
-							}
-						} else {
-							result[value.email] = value;
-						}
-					}
-					return result;
-				}, {})
-			);
-		} else {
-			to = EmailModel.parseEmailLine(email);
-		}
+		const
+			email = mailToUrl[0],
+			params = new URLSearchParams(mailToUrl[1]),
+			toEmailModel = value => null != value ? EmailModel.parseEmailLine(value) : null;
 
 		showMessageComposer([
 			ComposeType.Empty,
 			null,
-			to,
-			toEmailModel(params.cc),
-			toEmailModel(params.bcc),
-			null == params.subject ? null : decodeURIComponent(params.subject),
-			null == params.body ? null : plainToHtml(decodeURIComponent(params.body))
+			params.get('to')
+				? Object.values(
+						toEmailModel(email + ',' + params.get('to')).reduce((result, value) => {
+							if (value) {
+								if (result[value.email]) {
+									if (!result[value.email].name) {
+										result[value.email] = value;
+									}
+								} else {
+									result[value.email] = value;
+								}
+							}
+							return result;
+						}, {})
+					)
+				: EmailModel.parseEmailLine(email),
+			toEmailModel(params.get('cc')),
+			toEmailModel(params.get('bcc')),
+			params.get('subject'),
+			plainToHtml(params.get('body') || '')
 		]);
 
 		return true;
 	}
 
 	return false;
-}
+},
 
-export function showMessageComposer(params = [])
+showMessageComposer = (params = []) =>
 {
 	rl.app.showMessageComposer(params);
-}
+},
+
+setLayoutResizer = (source, target, sClientSideKeyName, mode) =>
+{
+	if (source.layoutResizer && source.layoutResizer.mode != mode) {
+		target.removeAttribute('style');
+		source.removeAttribute('style');
+	}
+	source.observer?.disconnect();
+//	source.classList.toggle('resizable', mode);
+	if (mode) {
+		const length = Local.get(sClientSideKeyName + mode) || SettingsGet('Resizer' + sClientSideKeyName + mode),
+			setTargetPos = mode => {
+				let value;
+				if ('Width' == mode) {
+					value = source.offsetWidth;
+					target.style.left = value + 'px';
+				} else {
+					value = source.offsetHeight;
+					target.style.top = (4 + source.offsetTop + value) + 'px';
+				}
+				return value;
+			};
+		if (length) {
+			source.style[mode.toLowerCase()] = length + 'px';
+			setTargetPos(mode);
+		}
+		if (!source.layoutResizer) {
+			const resizer = createElement('div', {'class':'resizer'}),
+				save = (data => Remote.saveSettings(0, data)).debounce(500),
+				size = {},
+				store = () => {
+					const value = setTargetPos(resizer.mode),
+						prop = resizer.key + resizer.mode;
+					(value == Local.get(prop)) || Local.set(prop, value);
+					(value == SettingsGet('Resizer' + prop)) || save({['Resizer' + prop]: value});
+				},
+				cssint = s => {
+					let value = getComputedStyle(source, null)[s].replace('px', '');
+					if (value.includes('%')) {
+						value = source.parentElement['offset'+resizer.mode]
+							* value.replace('%', '') / 100;
+					}
+					return parseFloat(value);
+				};
+			source.layoutResizer = resizer;
+			source.append(resizer);
+			resizer.addEventListener('mousedown', {
+				handleEvent: function(e) {
+					if ('mousedown' == e.type) {
+						const lmode = resizer.mode.toLowerCase();
+						e.preventDefault();
+						size.pos = ('width' == lmode) ? e.pageX : e.pageY;
+						size.min = cssint('min-'+lmode);
+						size.max = cssint('max-'+lmode);
+						size.org = cssint(lmode);
+						addEventListener('mousemove', this);
+						addEventListener('mouseup', this);
+					} else if ('mousemove' == e.type) {
+						const lmode = resizer.mode.toLowerCase(),
+							length = size.org + (('width' == lmode ? e.pageX : e.pageY) - size.pos);
+						if (length >= size.min && length <= size.max ) {
+							source.style[lmode] = length + 'px';
+							source.observer || store();
+						}
+					} else if ('mouseup' == e.type) {
+						removeEventListener('mousemove', this);
+						removeEventListener('mouseup', this);
+					}
+				}
+			});
+			source.observer = window.ResizeObserver ? new ResizeObserver(store) : null;
+		}
+		source.layoutResizer.mode = mode;
+		source.layoutResizer.key = sClientSideKeyName;
+		source.observer?.observe(source, { box: 'border-box' });
+	}
+},
+
+populateMessageBody = (oMessage, popup) => {
+	if (oMessage) {
+		popup || MessageUserStore.hideMessageBodies();
+		popup || MessageUserStore.loading(true);
+		Remote.message((iError, oData/*, bCached*/) => {
+			if (iError) {
+				if (Notification.RequestAborted !== iError && !popup) {
+					MessageUserStore.message(null);
+					MessageUserStore.error(getNotification(iError));
+				}
+			} else {
+				let json = oData?.Result;
+
+				if (
+					json &&
+					MessageModel.validJson(json) &&
+					oMessage.folder === json.Folder
+				) {
+					const threads = oMessage.threads(),
+						isNew = !popup && oMessage.uid != json.Uid && threads.includes(json.Uid),
+						messagesDom = MessageUserStore.bodiesDom();
+					if (isNew) {
+						oMessage = MessageModel.reviveFromJson(json);
+						if (oMessage) {
+							oMessage.threads(threads);
+							MessageFlagsCache.initMessage(oMessage);
+
+							// Set clone
+							MessageUserStore.message(MessageModel.fromMessageListItem(oMessage));
+							oMessage = MessageUserStore.message();
+						}
+					}
+
+					if (oMessage && oMessage.uid == json.Uid) {
+						popup || MessageUserStore.error('');
+/*
+						if (bCached) {
+							delete json.Flags;
+						}
+*/
+						isNew || oMessage.revivePropertiesFromJson(json);
+						if (messagesDom) {
+							let id = 'rl-msg-' + oMessage.hash.replace(/[^a-zA-Z0-9]/g, ''),
+								body = elementById(id);
+							if (body) {
+								oMessage.body = body;
+								oMessage.isHtml(body.classList.contains('html'));
+								oMessage.hasImages(body.rlHasImages);
+							} else {
+								body = Element.fromHTML('<div id="' + id + '" hidden="" class="b-text-part '
+									+ (oMessage.pgpSigned() ? ' openpgp-signed' : '')
+									+ (oMessage.pgpEncrypted() ? ' openpgp-encrypted' : '')
+									+ '">'
+									+ '</div>');
+								oMessage.body = body;
+								if (!SettingsUserStore.viewHTML() || !oMessage.viewHtml()) {
+									oMessage.viewPlain();
+								}
+
+								MessageUserStore.purgeMessageBodyCache();
+							}
+
+							messagesDom.append(body);
+
+							if (!popup) {
+								MessageUserStore.activeDom(body);
+								MessageUserStore.hideMessageBodies();
+								oMessage.body.hidden = false;
+							}
+							popup && oMessage.viewPopupMessage();
+						}
+
+						MessageFlagsCache.initMessage(oMessage);
+						if (oMessage.isUnseen()) {
+							MessageUserStore.MessageSeenTimer = setTimeout(
+								() => MessagelistUserStore.setAction(oMessage.folder, MessageSetAction.SetSeen, [oMessage]),
+								SettingsUserStore.messageReadDelay() * 1000 // seconds
+							);
+						}
+
+						if (isNew) {
+							let selectedMessage = MessagelistUserStore.selectedMessage();
+							if (
+								selectedMessage &&
+								(oMessage.folder !== selectedMessage.folder || oMessage.uid != selectedMessage.uid)
+							) {
+								MessagelistUserStore.selectedMessage(null);
+								if (1 === MessagelistUserStore.length) {
+									MessagelistUserStore.focusedMessage(null);
+								}
+							} else if (!selectedMessage) {
+								selectedMessage = MessagelistUserStore.find(
+									subMessage =>
+										subMessage &&
+										subMessage.folder === oMessage.folder &&
+										subMessage.uid == oMessage.uid
+								);
+
+								if (selectedMessage) {
+									MessagelistUserStore.selectedMessage(selectedMessage);
+									MessagelistUserStore.focusedMessage(selectedMessage);
+								}
+							}
+						}
+					}
+				}
+			}
+			popup || MessageUserStore.loading(false);
+		}, oMessage.folder, oMessage.uid);
+	}
+};

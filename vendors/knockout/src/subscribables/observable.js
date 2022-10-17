@@ -1,5 +1,5 @@
 const observableLatestValue = Symbol('_latestValue'),
-	length = 'length';
+    length = 'length';
 
 ko.observable = initialValue => {
     function observable() {
@@ -14,11 +14,9 @@ ko.observable = initialValue => {
             }
             return this; // Permits chained assignments
         }
-        else {
-            // Read
-            ko.dependencyDetection.registerDependency(observable); // The caller only needs to be notified of changes if they did a "read" operation
-            return observable[observableLatestValue];
-        }
+        // Read
+        ko.dependencyDetection.registerDependency(observable); // The caller only needs to be notified of changes if they did a "read" operation
+        return observable[observableLatestValue];
     }
 
     observable[observableLatestValue] = initialValue;
@@ -40,15 +38,15 @@ ko.observable = initialValue => {
 var observableFn = {
     'toJSON': function() {
         let value = this[observableLatestValue];
-        return value && value.toJSON ? value.toJSON() : value;
+        return value?.toJSON?.() || value;
     },
-    'equalityComparer': valuesArePrimitiveAndEqual,
+    equalityComparer: valuesArePrimitiveAndEqual,
     peek: function() { return this[observableLatestValue]; },
     valueHasMutated: function () {
-        this['notifySubscribers'](this[observableLatestValue], 'spectate');
-        this['notifySubscribers'](this[observableLatestValue]);
+        this.notifySubscribers(this[observableLatestValue], 'spectate');
+        this.notifySubscribers(this[observableLatestValue]);
     },
-    valueWillMutate: function () { this['notifySubscribers'](this[observableLatestValue], 'beforeChange'); }
+    valueWillMutate: function () { this.notifySubscribers(this[observableLatestValue], 'beforeChange'); }
 };
 
 // Note that for browsers that don't support proto assignment, the

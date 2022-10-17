@@ -2,12 +2,9 @@ import { getNotification } from 'Common/Translator';
 
 import Remote from 'Remote/User/Fetch';
 
-import { decorateKoCommands } from 'Knoin/Knoin';
 import { AbstractViewPopup } from 'Knoin/AbstractViews';
 
-const reEmail = /^[^@\s]+@[^@\s]+$/;
-
-class IdentityPopupView extends AbstractViewPopup {
+export class IdentityPopupView extends AbstractViewPopup {
 	constructor() {
 		super('Identity');
 
@@ -18,13 +15,11 @@ class IdentityPopupView extends AbstractViewPopup {
 
 			email: '',
 			emailFocused: false,
-			emailHasError: false,
 
 			name: '',
 
 			replyTo: '',
 			replyToFocused: false,
-			replyToHasError: false,
 
 			bcc: '',
 			bccFocused: false,
@@ -41,15 +36,12 @@ class IdentityPopupView extends AbstractViewPopup {
 		});
 
 		this.addSubscribables({
-			email: value => this.emailHasError(value && !reEmail.test(value)),
 			replyTo: value => {
-				this.replyToHasError(value && !reEmail.test(value));
 				if (false === this.showReplyTo() && value.length) {
 					this.showReplyTo(true);
 				}
 			},
 			bcc: value => {
-				this.bccHasError(value && !reEmail.test(value));
 				if (false === this.showBcc() && value.length) {
 					this.showBcc(true);
 				}
@@ -60,90 +52,38 @@ class IdentityPopupView extends AbstractViewPopup {
 		this.replyTo.valueHasMutated();
 		this.bcc.valueHasMutated();
 */
-		decorateKoCommands(this, {
-			addOrEditIdentityCommand: self => !self.submitRequest()
-		});
 	}
 
-	addOrEditIdentityCommand() {
-		if (this.signature && this.signature.__fetchEditorValue) {
-			this.signature.__fetchEditorValue();
+	submitForm(form) {
+		if (!this.submitRequest() && form.reportValidity()) {
+			this.signature?.__fetchEditorValue?.();
+			this.submitRequest(true);
+			const data = new FormData(form);
+			data.set('Id', this.id);
+			data.set('Signature', this.signature());
+			data.set('SignatureInsertBefore', this.signatureInsertBefore() ? 1 : 0);
+			Remote.request('IdentityUpdate', iError => {
+					this.submitRequest(false);
+					if (iError) {
+						this.submitError(getNotification(iError));
+					} else {
+						rl.app.accountsAndIdentities();
+						this.close();
+					}
+				}, data
+			);
 		}
-
-		if (!this.emailHasError()) {
-			this.emailHasError(!this.email().trim());
-		}
-
-		if (this.emailHasError()) {
-			if (!this.owner()) {
-				this.emailFocused(true);
-			}
-
-			return false;
-		}
-
-		if (this.replyToHasError()) {
-			this.replyToFocused(true);
-			return false;
-		}
-
-		if (this.bccHasError()) {
-			this.bccFocused(true);
-			return false;
-		}
-
-		this.submitRequest(true);
-
-		Remote.identityUpdate(
-			iError => {
-				this.submitRequest(false);
-				if (iError) {
-					this.submitError(getNotification(iError));
-				} else {
-					rl.app.accountsAndIdentities();
-					this.cancelCommand();
-				}
-			},
-			this.id,
-			this.email(),
-			this.name(),
-			this.replyTo(),
-			this.bcc(),
-			this.signature(),
-			this.signatureInsertBefore()
-		);
-
-		return true;
-	}
-
-	clearPopup() {
-		this.id = '';
-		this.edit(false);
-		this.owner(false);
-
-		this.name('');
-		this.email('');
-		this.replyTo('');
-		this.bcc('');
-		this.signature('');
-		this.signatureInsertBefore(false);
-
-		this.emailHasError(false);
-		this.replyToHasError(false);
-		this.bccHasError(false);
-
-		this.showBcc(false);
-		this.showReplyTo(false);
-
-		this.submitRequest(false);
-		this.submitError('');
 	}
 
 	/**
 	 * @param {?IdentityModel} oIdentity
 	 */
 	onShow(identity) {
-		this.clearPopup();
+		this.showBcc(false);
+		this.showReplyTo(false);
+
+		this.submitRequest(false);
+		this.submitError('');
 
 		if (identity) {
 			this.edit(true);
@@ -158,17 +98,21 @@ class IdentityPopupView extends AbstractViewPopup {
 
 			this.owner(!this.id);
 		} else {
+			this.edit(false);
+
 			this.id = Jua.randomId();
+			this.name('');
+			this.email('');
+			this.replyTo('');
+			this.bcc('');
+			this.signature('');
+			this.signatureInsertBefore(false);
+
+			this.owner(false);
 		}
 	}
 
-	onShowWithDelay() {
+	afterShow() {
 		this.owner() || this.emailFocused(true);
 	}
-
-	onHideWithDelay() {
-		this.clearPopup();
-	}
 }
-
-export { IdentityPopupView, IdentityPopupView as default };

@@ -1,4 +1,4 @@
-/* RainLoop Webmail (c) RainLoop Team | Licensed under AGPL 3 */
+/* RainLoop Webmail (c) RainLoop Team | Licensed under MIT */
 const gulp = require('gulp');
 
 const concat = require('gulp-concat');
@@ -53,7 +53,7 @@ const cssAdminBuild = () => {
 	const
 		less = require('gulp-less'),
 		lessFilter = filter('**/*.less', { restore: true }),
-		src = config.paths.css.main.src.concat([config.paths.less.admin.src]);
+		src = config.paths.css.admin.src;
 
 	return gulp
 		.src(src)

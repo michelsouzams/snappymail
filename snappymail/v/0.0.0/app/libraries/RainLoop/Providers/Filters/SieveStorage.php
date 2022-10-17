@@ -60,7 +60,7 @@ class SieveStorage implements FiltersInterface
 				);
 			}
 
-			$oSieveClient->LogoutAndDisconnect();
+			$oSieveClient->Disconnect();
 
 			if (!isset($aList[self::SIEVE_FILE_NAME])) {
 				$aScripts[self::SIEVE_FILE_NAME] = array(
@@ -81,23 +81,11 @@ class SieveStorage implements FiltersInterface
 		);
 	}
 
-	public function Save(\RainLoop\Model\Account $oAccount, string $sScriptName, array $aFilters, string $sRaw = '') : bool
+	public function Save(\RainLoop\Model\Account $oAccount, string $sScriptName, string $sRaw) : bool
 	{
-		if ($aFilters && !$sRaw) {
-			Sieve::$bUtf8FolderName = !!$this->oConfig->Get('labs', 'sieve_utf8_folder_name', true);
-			$sRaw = Sieve::collectionToFileString($aFilters);
-		}
 		$oSieveClient = $this->getConnection($oAccount);
 		if ($oSieveClient) {
-			if (empty($sRaw)) {
-				$aList = $oSieveClient->ListScripts();
-				if (isset($aList[$sScriptName])) {
-					$oSieveClient->DeleteScript($sScriptName);
-				}
-			} else {
-				$oSieveClient->PutScript($sScriptName, $sRaw);
-			}
-			$oSieveClient->LogoutAndDisconnect();
+			$oSieveClient->PutScript($sScriptName, $sRaw);
 			return true;
 		}
 		return false;
@@ -130,7 +118,9 @@ class SieveStorage implements FiltersInterface
 	{
 		$oSieveClient = $this->getConnection($oAccount);
 		if ($oSieveClient) {
-			$oSieveClient->DeleteScript(\trim($sScriptName));
+			if (isset($oSieveClient->ListScripts()[$sScriptName])) {
+				$oSieveClient->DeleteScript(\trim($sScriptName));
+			}
 			return true;
 		}
 		return false;

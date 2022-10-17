@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://github.com/the-djmaze/snappymail">
-    <img src="https://snappymail.eu/static/img/logo-256x256.png">
+    <img src="https://snappymail.eu/static/img/logo-256x256-white.png">
   </a>
   <br>
   <h1>SnappyMail</h1>
@@ -34,8 +34,8 @@ And don't forget to read the [RainLoop documentation](https://www.rainloop.net/d
 **GNU AFFERO GENERAL PUBLIC LICENSE Version 3 (AGPL)**.
 http://www.gnu.org/licenses/agpl-3.0.html
 
-Copyright (c) 2020 - 2021 SnappyMail
-Copyright (c) 2013 - 2021 RainLoop
+Copyright (c) 2020 - 2022 SnappyMail
+Copyright (c) 2013 - 2022 RainLoop
 
 ## Modifications
 
@@ -45,24 +45,26 @@ This fork of RainLoop has the following changes:
 * Admin uses password_hash/password_verify
 * Auth failed attempts written to syslog
 * Added Fail2ban instructions
-* ES2015
+* ES2018
 * PHP 7.3+ required
 * PHP mbstring extension required
 * PHP replaced pclZip with PharData and ZipArchive
-* PHP yaml extension else use the old Spyc
+* Dark mode
 * Added option to remove background/font colors from messages for real "dark mode"
 * Removed BackwardCapability (class \RainLoop\Account)
 * Removed ChangePassword (re-implemented as plugin)
-* Removed OAuth support
 * Removed POP3 support
 * Removed background video support
 * Removed Sentry (Application Monitoring and Error Tracking Software)
+* Removed Spyc yaml
 * Replaced gulp-uglify with gulp-terser
 * CRLF => LF line endings
 * Embed boot.js and boot.css into index.html
 * Ongoing removal of old JavaScript code (things are native these days)
 * Added modified [Squire](https://github.com/neilj/Squire) HTML editor as replacement for CKEditor
+* Updated [Sabre/VObject](https://github.com/sabre-io/vobject)
 * Split Admin specific JavaScript code from User code
+* Split Sieve specific JavaScript code from User code
 * JSON reviver
 * Better memory garbage collection management
 * Added serviceworker for Notifications
@@ -73,33 +75,50 @@ This fork of RainLoop has the following changes:
 * Added support to load plugins as .phar
 * Replaced old Sabre library
 * AddressBook Contacts support MySQL/MariaDB utf8mb4
-* Prevent Google FLoC
 * Added [Fetch Metadata Request Headers](https://www.w3.org/TR/fetch-metadata/) checks
+* Reduced excessive DOM size
+* Support [Kolab groupware](https://kolab.org/)
+* Support IMAP RFC 2971 ID extension
+* Support IMAP RFC 5258 LIST-EXTENDED
+* Support IMAP RFC 5464 METADATA
+* Support IMAP RFC 5819 LIST-STATUS
+* Support IMAP RFC 7628 SASL OAUTHBEARER aka XOAUTH2
+* Support IMAP4rev2 RFC 9051
+* Support Sodium and OpenSSL for encryption
+* Much better PGP support
+
+
+### Supported browsers
+
+This fork uses downsized/simplified versions of scripts and has no support for Internet Explorer nor Edge Legacy.
+Supported are:
+
+* Chrome 80+
+* Edge 80+
+* Firefox 78+
+* Opera 67+
+* Safari 13.1+
+
 
 ### Removal of old JavaScript
 
-This fork uses downsized/simplified versions of scripts and has no support for Internet Explorer.
-
 The result is faster and smaller download code (good for mobile networks).
-
-Things might work in Edge 18, Firefox 50-62 and Chrome 54-68 due to one polyfill for array.flat().
 
 * Added dev/prototype.js for some additional features
 * boot.js without webpack overhead
 * Modified Jua.js to be without jQuery
-* Replaced ProgressJS with simple native dropin
 * Replaced Autolinker with simple https/email detection
-* Replaced ifvisible.js with simple drop-in replacement
-* Replaced momentToNode with proper HTML5 <time>
+* Replaced momentToNode with proper HTML5 `<time>`
 * Replaced resize listeners with ResizeObserver
 * Replaced bootstrap.js with native drop-in replacement
 * Replaced dev/Common/ClientStorageDriver/* with Web Storage Objects polyfill
 * Replaced *Ajax with *Fetch classes because we use the Fetch API, not jQuery.ajax
-* Replaced knockoutjs 3.4 with a modified 3.5.1
+* Replaced [knockoutjs](https://github.com/knockout/knockout) 3.4 with a modified 3.5.1
 * Replaced knockout-sortable with native HTML5 drag&drop
 * Replaced simplestatemanager with CSS @media
 * Replaced inputosaurus with own code
 * Replaced keymaster with own shortcuts handler
+* Removed ifvisible.js
 * Removed pikaday
 * Removed underscore
 * Removed polyfills
@@ -114,36 +133,35 @@ Things might work in Edge 18, Firefox 50-62 and Chrome 54-68 due to one polyfill
 * Removed momentjs (use Intl)
 * Removed opentip (use CSS)
 * Removed non-community (aka Prem/Premium/License) code
+* Removed ProgressJS
 
 
-RainLoop 1.15 vs SnappyMail
+RainLoop 1.17 vs SnappyMail
 
 |js/*           	|RainLoop 	|Snappy   	|
 |---------------	|--------:	|--------:	|
-|admin.js        	|2.158.025	|   91.364	|
-|app.js          	|4.215.733	|  454.661	|
-|boot.js         	|  672.433	|    3.147	|
-|libs.js         	|  647.679	|  218.491	|
-|polyfills.js    	|  325.908	|        0	|
+|admin.js        	|2.170.153	|   80.893	|
+|app.js          	|4.207.787	|  405.596	|
+|boot.js         	|  868.735	|    2.050	|
+|libs.js         	|  658.812	|  195.214	|
+|sieve.js         	|        0	|   86.183	|
+|polyfills.js    	|  334.608	|        0	|
 |serviceworker.js	|        0	|      285	|
-|TOTAL           	|8.019.778	|  767.663	|
+|TOTAL           	|8.240.095	|  770.221	|
 
 |js/min/*       	|RainLoop 	|Snappy   	|RL gzip	|SM gzip	|RL brotli	|SM brotli	|
 |---------------	|--------:	|--------:	|------:	|------:	|--------:	|--------:	|
-|admin.min.js    	|  255.514	|   47.527	| 73.899	| 14.263	| 60.674  	| 12.750	|
-|app.min.js      	|  516.000	|  233.755	|140.430	| 68.663	|110.657  	| 58.026	|
-|boot.min.js     	|   66.456	|    1.751	| 22.553	|  1.025	| 20.043  	|    858	|
-|libs.min.js     	|  574.626	|  106.543	|177.280	| 38.613	|151.855  	| 34.543	|
-|polyfills.min.js	|   32.608	|        0	| 11.315	|      0	| 10.072  	|      0	|
-|TOTAL           	|1.445.204	|  389.576	|425.477	|122.564	|353.301  	|106.177	|
-|TOTAL (no admin)	|1.189.690	|  342.049	|351.061	|108.301	|292.627  	| 93.427	|
+|admin.min.js    	|  256.831	|   40.083	| 73.606	| 13.387	| 60.877  	| 11.991	|
+|app.min.js      	|  515.367	|  187.928	|139.456	| 62.162	|110.485  	| 53.380	|
+|boot.min.js     	|   84.659	|    1.252	| 26.998	|    778	| 23.643  	|    628	|
+|libs.min.js     	|  584.772	|   93.430	|180.901	| 34.504	|155.182  	| 30.954	|
+|sieve.min.js     	|        0	|   41.961	|      0	| 10.493	|      0  	|  9.462	|
+|polyfills.min.js	|   32.837	|        0	| 11.406	|      0	| 10.175  	|      0	|
+|TOTAL user      	|1.217.635	|  282.610	|358.761	| 97.444	|299.485  	| 84.962	|
+|TOTAL user+sieve	|1.217.635	|  324.571	|358.761	|107.937	|299.485  	| 94.424	|
+|TOTAL admin     	|  959.099	|  134.765	|292.911	| 48.669	|249.877  	| 43.573	|
 
-For a user its around 69% smaller and faster than traditional RainLoop.
-
-|OpenPGP        	|RainLoop 	|Snappy   	|RL gzip	|SM gzip	|RL brotli	|SM brotli	|
-|---------------	|--------:	|--------:	|------:	|------:	|--------:	|--------:	|
-|openpgp.min.js 	|  330.742	|  293.972	|102.388	| 93.030	| 84.241  	| 77.142	|
-|openpgp.worker 	|    1.499	|    1.125	|    824	|    567	|    695 	|    467	|
+For a user its around 70% smaller and faster than traditional RainLoop.
 
 ### CSS changes
 
@@ -151,7 +169,7 @@ For a user its around 69% smaller and faster than traditional RainLoop.
 * Themes work in mobile mode
 * Bugfix invalid/conflicting css rules
 * Use flexbox
-* Split app.css to have seperate admin.css
+* Split app.css to have separate admin.css
 * Remove oldschool 'float'
 * Remove unused css
 * Removed html.no-css
@@ -160,13 +178,7 @@ For a user its around 69% smaller and faster than traditional RainLoop.
 * Removed Internet Explorer from normalize.css
 * Removed node_modules/opentip/css/opentip.css
 * Removed node_modules/pikaday/css/pikaday.css
-* Removed vendors/bootstrap/less/breadcrumbs.less
-* Removed vendors/bootstrap/less/navbar.less
-* Removed vendors/bootstrap/less/popovers.less
-* Removed vendors/bootstrap/less/progress-bars.less
-* Removed vendors/bootstrap/less/scaffolding.less
-* Removed vendors/bootstrap/less/sprites.less
-* Removed vendors/bootstrap/less/tooltip.less
+* Removed unused vendors/bootstrap/less/*
 * Removed vendors/jquery-nanoscroller/nanoscroller.css
 * Removed vendors/jquery-letterfx/jquery-letterfx.min.css
 * Removed vendors/Progress.js/minified/progressjs.min.css
@@ -175,12 +187,27 @@ For a user its around 69% smaller and faster than traditional RainLoop.
 
 |css/*       	|RainLoop	|Snappy   	|RL gzip	|SM gzip	|SM brotli	|
 |------------	|-------:	|------:	|------:	|------:	|--------:	|
-|app.css     	| 340.334	| 98.499	| 46,959	| 17.842	| 15.378	|
-|app.min.css 	| 274.791	| 81.603	| 39.618	| 15.982	| 14.056	|
+|app.css     	| 340.331	| 81.669	| 46.946	| 16.923	| 14.538	|
+|app.min.css 	| 274.947	| 65.520	| 39.647	| 15.098	| 13.140	|
 |boot.css    	|       	|  1.326	|       	|    664	|    545	|
 |boot.min.css	|       	|  1.071	|       	|    590	|    474	|
-|admin.css    	|       	| 40.516	|       	|  8.481	|  7.401	|
-|admin.min.css	|       	| 32.041	|       	|  7.447	|  6.610	|
+|admin.css    	|       	| 29.949	|       	|  6.793	|  5.898	|
+|admin.min.css	|       	| 24.073	|       	|  6.158	|  5.414	|
+
+### PGP
+RainLoop uses the old OpenPGP.js v2
+SnappyMail v2.12 uses OpenPGP.js v5, GnuPG and Mailvelope.
+SnappyMail is able to use and generate ECDSA and EDDSA keys, where RainLoop does not.
+
+Since SnappyMail tries to achieve the best mobile experience, it forked OpenPGP.js to strip it down.
+* remove all unused Node.js
+* remove all old browsers support
+See https://github.com/the-djmaze/openpgpjs for development
+
+|OpenPGP        	|RainLoop 	|Snappy   	|RL gzip	|SM gzip	|RL brotli	|SM brotli	|
+|---------------	|--------:	|--------:	|------:	|-------:	|--------:	|--------:	|
+|openpgp.min.js 	|  330.742	|  539.244	|102.388	| 166.997	| 84.241  	|  137.184	|
+|openpgp.worker 	|    1.499	|         	|    824	|        	|    695 	|        	|
 
 
 ### Squire vs CKEditor
@@ -193,7 +220,7 @@ Still TODO:
 
 |       	| normal	| min    	| gzip  	| min gzip	|
 |--------	|-------:	|-------:	|------:	|--------:	|
-|squire  	| 128.826	|  47.074	| 33.671	|   15.596	|
+|squire  	| 122.321	|  41.906	| 31.867	|   14.330	|
 |ckeditor	|       ?	| 520.035	|      ?	|  155.916	|
 
 CKEditor including the 7 asset requests (css,language,plugins,icons) is 633.46 KB / 180.47 KB (gzip).

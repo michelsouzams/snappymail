@@ -1,81 +1,54 @@
 import { i18n, getNotification } from 'Common/Translator';
-import { setFolderHash } from 'Common/Cache';
 
 import { MessageUserStore } from 'Stores/User/Message';
+import { MessagelistUserStore } from 'Stores/User/Messagelist';
 
 import Remote from 'Remote/User/Fetch';
 
 import { decorateKoCommands } from 'Knoin/Knoin';
 import { AbstractViewPopup } from 'Knoin/AbstractViews';
 
-class FolderClearPopupView extends AbstractViewPopup {
+export class FolderClearPopupView extends AbstractViewPopup {
 	constructor() {
 		super('FolderClear');
 
 		this.addObservables({
-			selectedFolder: null,
-			clearingProcess: false,
-			clearingError: ''
+			folder: null,
+			clearing: false
 		});
 
 		this.addComputables({
-			folderFullNameForClear: () => {
-				const folder = this.selectedFolder();
-				return folder ? folder.printableFullName() : '';
-			},
-
-			folderNameForClear: () => {
-				const folder = this.selectedFolder();
-				return folder ? folder.localName() : '';
-			},
-
-			dangerDescHtml: () => i18n('POPUPS_CLEAR_FOLDER/DANGER_DESC_HTML_1', { FOLDER: this.folderNameForClear() })
+			dangerDescHtml: () => {
+//				const folder = this.folder();
+//				return i18n('POPUPS_CLEAR_FOLDER/DANGER_DESC_HTML_1', { FOLDER: folder.fullName.replace(folder.delimiter, ' / ') });
+				return i18n('POPUPS_CLEAR_FOLDER/DANGER_DESC_HTML_1', { FOLDER: this.folder()?.localName() });
+			}
 		});
 
 		decorateKoCommands(this, {
-			clearCommand: self => {
-					const folder = self.selectedFolder();
-					return !self.clearingProcess() && null !== folder;
-				}
+			clearCommand: self => !self.clearing()
 		});
 	}
 
 	clearCommand() {
-		const folderToClear = this.selectedFolder();
-		if (folderToClear) {
-			MessageUserStore.message(null);
-			MessageUserStore.list([]);
-
-			this.clearingProcess(true);
-
-			folderToClear.messageCountAll(0);
-			folderToClear.messageCountUnread(0);
-
-			setFolderHash(folderToClear.fullNameRaw, '');
-
-			Remote.folderClear(iError => {
-				this.clearingProcess(false);
-				if (iError) {
-					this.clearingError(getNotification(iError));
-				} else {
-					rl.app.reloadMessageList(true);
-					this.cancelCommand();
-				}
-			}, folderToClear.fullNameRaw);
+		const folder = this.folder();
+		if (folder) {
+			this.clearing(true);
+			Remote.request('FolderClear', iError => {
+				folder.totalEmails(0);
+				folder.unreadEmails(0);
+				MessageUserStore.message(null);
+				MessagelistUserStore.reload(true, true);
+				this.clearing(false);
+				iError ? alert(getNotification(iError)) : this.close();
+			}, {
+				Folder: folder.fullName
+			});
 		}
-	}
-
-	clearPopup() {
-		this.clearingProcess(false);
-		this.selectedFolder(null);
 	}
 
 	onShow(folder) {
-		this.clearPopup();
-		if (folder) {
-			this.selectedFolder(folder);
-		}
+		this.clearing(false);
+		this.folder(folder);
 	}
 }
-
-export { FolderClearPopupView, FolderClearPopupView as default };

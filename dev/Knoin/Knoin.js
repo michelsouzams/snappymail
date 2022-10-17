@@ -1,358 +1,318 @@
 import ko from 'ko';
+import { koComputable } from 'External/ko';
+import { doc, $htmlCL, elementById, fireEvent } from 'Common/Globals';
+import { forEachObjectValue, forEachObjectEntry } from 'Common/Utils';
+import { i18nToNodes } from 'Common/Translator';
 
-import { doc, $htmlCL } from 'Common/Globals';
-import { arrayLength, isFunction } from 'Common/Utils';
-
-let currentScreen = null,
+let
+	SCREENS = {},
+	currentScreen = null,
 	defaultScreenName = '';
 
-const SCREENS = {},
-	autofocus = dom => {
-		const af = dom.querySelector('[autofocus]');
-		af && af.focus();
-	};
+const
+	autofocus = dom => dom.querySelector('[autofocus]')?.focus(),
 
-export const popupVisibilityNames = ko.observableArray([]);
+	visiblePopups = new Set,
 
-export const ViewType = {
-	Popup: 'Popups',
-	Left: 'Left',
-	Right: 'Right',
-	Content: 'Content'
-};
+	/**
+	 * @param {string} screenName
+	 * @returns {?Object}
+	 */
+	screen = screenName => (screenName && SCREENS[screenName]) || null,
 
-/**
- * @param {Function} fExecute
- * @param {(Function|boolean|null)=} fCanExecute = true
- * @returns {Function}
- */
-export function createCommand(fExecute, fCanExecute = true) {
-	let fResult = null;
+	/**
+	 * @param {Function} ViewModelClass
+	 * @param {Object=} vmScreen
+	 * @returns {*}
+	 */
+	buildViewModel = (ViewModelClass, vmScreen) => {
+		if (ViewModelClass && !ViewModelClass.__builded) {
+			let vmDom = null;
+			const
+				vm = new ViewModelClass(vmScreen),
+				id = vm.viewModelTemplateID,
+				position = 'rl-' + vm.viewType,
+				dialog = ViewTypePopup === vm.viewType,
+				vmPlace = doc.getElementById(position);
 
-	fResult = fExecute
-		? (...args) => {
-			if (fResult && fResult.canExecute && fResult.canExecute()) {
-				fExecute.apply(null, args);
-			}
-			return false;
-		} : ()=>{};
-	fResult.enabled = ko.observable(true);
-	fResult.isCommand = true;
+			fireEvent('rl-view-model.create', vm);
 
-	if (isFunction(fCanExecute)) {
-		fResult.canExecute = ko.computed(() => fResult && fResult.enabled() && fCanExecute.call(null));
-	} else {
-		fResult.canExecute = ko.computed(() => fResult && fResult.enabled() && !!fCanExecute);
-	}
+			ViewModelClass.__builded = true;
+			ViewModelClass.__vm = vm;
 
-	return fResult;
-}
+			if (vmPlace) {
+				vmDom = Element.fromHTML(dialog
+					? '<dialog id="V-'+ id + '"></dialog>'
+					: '<div id="V-'+ id + '" hidden=""></div>');
+				vmPlace.append(vmDom);
 
-/**
- * @param {string} screenName
- * @returns {?Object}
- */
-function screen(screenName) {
-	return screenName && null != SCREENS[screenName] ? SCREENS[screenName] : null;
-}
+				vm.viewModelDom = ViewModelClass.__dom = vmDom;
 
-/**
- * @param {Function} ViewModelClassToHide
- * @returns {void}
- */
-export function hideScreenPopup(ViewModelClassToHide) {
-	if (ViewModelClassToHide && ViewModelClassToHide.__vm && ViewModelClassToHide.__dom) {
-		ViewModelClassToHide.__vm.modalVisibility(false);
-	}
-}
+				if (dialog) {
+					vm.close = () => hideScreenPopup(ViewModelClass);
 
-/**
- * @param {Function} ViewModelClass
- * @param {Object=} vmScreen
- * @returns {*}
- */
-function buildViewModel(ViewModelClass, vmScreen) {
-	if (ViewModelClass && !ViewModelClass.__builded) {
-		let vmDom = null;
-		const vm = new ViewModelClass(vmScreen),
-			position = vm.viewModelPosition || '',
-			vmPlace = position ? doc.getElementById('rl-' + position.toLowerCase()) : null;
+					// Firefox < 98 / Safari < 15.4 HTMLDialogElement not defined
+					if (!vmDom.showModal) {
+						vmDom.showModal = () => {
+							vmDom.backdrop ||
+								vmDom.before(vmDom.backdrop = Element.fromHTML('<div class="dialog-backdrop"></div>'));
+							vmDom.setAttribute('open','');
+							vmDom.open = true;
+							vmDom.returnValue = null;
+							vmDom.backdrop.hidden = false;
+						};
+						vmDom.close = v => {
+//							if (vmDom.dispatchEvent(new CustomEvent('cancel', {cancelable:true}))) {
+								vmDom.backdrop.hidden = true;
+								vmDom.returnValue = v;
+								vmDom.removeAttribute('open', null);
+								vmDom.open = false;
+//								vmDom.dispatchEvent(new CustomEvent('close'));
+//							}
+						};
+					}
+					// https://developer.mozilla.org/en-US/docs/Web/API/HTMLDialogElement/cancel_event
+//					vmDom.addEventListener('cancel', event => (false === vm.onClose() && event.preventDefault()));
+//					vmDom.addEventListener('close', () => vm.modalVisible(false));
 
-		ViewModelClass.__builded = true;
-		ViewModelClass.__vm = vm;
-
-		if (vmPlace) {
-			vmDom = Element.fromHTML('<div class="rl-view-model RL-' + vm.viewModelTemplateID + '" hidden=""></div>');
-			vmPlace.append(vmDom);
-
-			vm.viewModelDom = vmDom;
-			ViewModelClass.__dom = vmDom;
-
-			if (ViewType.Popup === position) {
-				vm.cancelCommand = vm.closeCommand = createCommand(() => {
-					hideScreenPopup(ViewModelClass);
-				});
-
-				// show/hide popup/modal
-				const endShowHide = e => {
-					if (e.target === vmDom) {
-						if (vmDom.classList.contains('show')) {
-							autofocus(vmDom);
-							vm.onShowWithDelay && vm.onShowWithDelay();
-						} else {
-							vmDom.hidden = true;
-							vm.onHideWithDelay && vm.onHideWithDelay();
+					// show/hide popup/modal
+					const endShowHide = e => {
+						if (e.target === vmDom) {
+							if (vmDom.classList.contains('animate')) {
+								autofocus(vmDom);
+								vm.afterShow?.();
+							} else {
+								vmDom.close();
+								vm.afterHide?.();
+							}
 						}
-					}
-				};
+					};
 
-				vm.modalVisibility.subscribe(value => {
-					if (value) {
-						vmDom.style.zIndex = 3000 + popupVisibilityNames().length + 10;
-						vmDom.hidden = false;
-						vm.storeAndSetScope();
-						popupVisibilityNames.push(vm.viewModelName);
-						requestAnimationFrame(() => { // wait just before the next paint
-							vmDom.offsetHeight; // force a reflow
-							vmDom.classList.add('show'); // trigger the transitions
-						});
-					} else {
-						vm.onHide && vm.onHide();
-						vmDom.classList.remove('show');
-						vm.restoreScope();
-						popupVisibilityNames(popupVisibilityNames.filter(v=>v!==vm.viewModelName));
-					}
-					vmDom.setAttribute('aria-hidden', !value);
-				});
-				if ('ontransitionend' in vmDom) {
+					vm.modalVisible.subscribe(value => {
+						if (value) {
+							i18nToNodes(vmDom);
+							visiblePopups.add(vm);
+							vmDom.style.zIndex = 3001 + (visiblePopups.size * 2);
+							vmDom.showModal();
+							if (vmDom.backdrop) {
+								vmDom.backdrop.style.zIndex = 3000 + (visiblePopups.size * 2);
+							}
+							vm.keyScope.set();
+							requestAnimationFrame(() => { // wait just before the next paint
+								vmDom.offsetHeight; // force a reflow
+								vmDom.classList.add('animate'); // trigger the transitions
+							});
+						} else {
+							visiblePopups.delete(vm);
+							vm.onHide?.();
+							vm.keyScope.unset();
+							vmDom.classList.remove('animate'); // trigger the transitions
+						}
+						arePopupsVisible(0 < visiblePopups.size);
+					});
 					vmDom.addEventListener('transitionend', endShowHide);
-				} else {
-					// For Edge < 79 and mobile browsers
-					vm.modalVisibility.subscribe(() => ()=>setTimeout(endShowHide({target:vmDom}), 500));
 				}
-			}
 
-			ko.applyBindingAccessorsToNode(
-				vmDom,
-				{
-					i18nInit: true,
-					template: () => ({ name: vm.viewModelTemplateID })
-				},
-				vm
-			);
-
-			vm.onBuild && vm.onBuild(vmDom);
-			if (vm && ViewType.Popup === position) {
-				vm.registerPopupKeyDown();
-			}
-
-			dispatchEvent(new CustomEvent('rl-view-model', {detail:vm}));
-		} else {
-			console.log('Cannot find view model position: ' + position);
-		}
-	}
-
-	return ViewModelClass && ViewModelClass.__vm;
-}
-
-export function getScreenPopupViewModel(ViewModelClassToShow) {
-	return (buildViewModel(ViewModelClassToShow) && ViewModelClassToShow.__dom) && ViewModelClassToShow.__vm;
-}
-
-/**
- * @param {Function} ViewModelClassToShow
- * @param {Array=} params
- * @returns {void}
- */
-export function showScreenPopup(ViewModelClassToShow, params = []) {
-	const vm = getScreenPopupViewModel(ViewModelClassToShow);
-	if (vm) {
-		params = params || [];
-
-		vm.onBeforeShow && vm.onBeforeShow(...params);
-
-		vm.modalVisibility(true);
-
-		vm.onShow && vm.onShow(...params);
-	}
-}
-
-/**
- * @param {Function} ViewModelClassToShow
- * @returns {boolean}
- */
-export function isPopupVisible(ViewModelClassToShow) {
-	return ViewModelClassToShow && ViewModelClassToShow.__vm && ViewModelClassToShow.__vm.modalVisibility();
-}
-
-/**
- * @param {string} screenName
- * @param {string} subPart
- * @returns {void}
- */
-function screenOnRoute(screenName, subPart) {
-	let vmScreen = null,
-		isSameScreen = false;
-
-	if (null == screenName || '' == screenName) {
-		screenName = defaultScreenName;
-	}
-
-	if (screenName) {
-		vmScreen = screen(screenName);
-		if (!vmScreen) {
-			vmScreen = screen(defaultScreenName);
-			if (vmScreen) {
-				subPart = screenName + '/' + subPart;
-				screenName = defaultScreenName;
-			}
-		}
-
-		if (vmScreen && vmScreen.__started) {
-			isSameScreen = currentScreen && vmScreen === currentScreen;
-
-			if (!vmScreen.__builded) {
-				vmScreen.__builded = true;
-
-				vmScreen.viewModels.forEach(ViewModelClass =>
-					buildViewModel(ViewModelClass, vmScreen)
+				ko.applyBindingAccessorsToNode(
+					vmDom,
+					{
+						template: () => ({ name: id })
+					},
+					vm
 				);
 
-				vmScreen.onBuild && vmScreen.onBuild();
+				vm.onBuild?.(vmDom);
+
+				fireEvent('rl-view-model', vm);
+			} else {
+				console.log('Cannot find view model position: ' + position);
 			}
-
-			setTimeout(() => {
-				// hide screen
-				if (currentScreen && !isSameScreen) {
-					currentScreen.onHide && currentScreen.onHide();
-					currentScreen.onHideWithDelay && setTimeout(()=>currentScreen.onHideWithDelay(), 500);
-
-					if (arrayLength(currentScreen.viewModels)) {
-						currentScreen.viewModels.forEach(ViewModelClass => {
-							if (
-								ViewModelClass.__vm &&
-								ViewModelClass.__dom &&
-								ViewType.Popup !== ViewModelClass.__vm.viewModelPosition
-							) {
-								ViewModelClass.__dom.hidden = true;
-								ViewModelClass.__vm.viewModelVisible = false;
-
-								ViewModelClass.__vm.onHide && ViewModelClass.__vm.onHide();
-								ViewModelClass.__vm.onHideWithDelay && setTimeout(()=>ViewModelClass.__vm.onHideWithDelay(), 500);
-							}
-						});
-					}
-				}
-				// --
-
-				currentScreen = vmScreen;
-
-				// show screen
-				if (currentScreen && !isSameScreen) {
-					currentScreen.onShow && currentScreen.onShow();
-
-					if (arrayLength(currentScreen.viewModels)) {
-						currentScreen.viewModels.forEach(ViewModelClass => {
-							if (
-								ViewModelClass.__vm &&
-								ViewModelClass.__dom &&
-								ViewType.Popup !== ViewModelClass.__vm.viewModelPosition
-							) {
-								ViewModelClass.__vm.onBeforeShow && ViewModelClass.__vm.onBeforeShow();
-
-								ViewModelClass.__dom.hidden = false;
-								ViewModelClass.__vm.viewModelVisible = true;
-
-								ViewModelClass.__vm.onShow && ViewModelClass.__vm.onShow();
-
-								autofocus(ViewModelClass.__dom);
-
-								ViewModelClass.__vm.onShowWithDelay && setTimeout(()=>ViewModelClass.__vm.onShowWithDelay, 200);
-							}
-						});
-					}
-				}
-				// --
-
-				vmScreen && vmScreen.__cross && vmScreen.__cross.parse(subPart);
-			}, 1);
 		}
-	}
-}
 
-/**
- * @param {Array} screensClasses
- * @returns {void}
- */
-export function startScreens(screensClasses) {
-	screensClasses.forEach(CScreen => {
-		if (CScreen) {
-			const vmScreen = new CScreen(),
-				screenName = vmScreen && vmScreen.screenName();
+		return ViewModelClass && ViewModelClass.__vm;
+	},
+
+	forEachViewModel = (screen, fn) => {
+		screen.viewModels.forEach(ViewModelClass => {
+			if (
+				ViewModelClass.__vm &&
+				ViewModelClass.__dom &&
+				ViewTypePopup !== ViewModelClass.__vm.viewType
+			) {
+				fn(ViewModelClass.__vm, ViewModelClass.__dom);
+			}
+		});
+	},
+
+	hideScreen = (screenToHide, destroy) => {
+		screenToHide.onHide?.();
+		forEachViewModel(screenToHide, (vm, dom) => {
+			dom.hidden = true;
+			vm.onHide?.();
+			destroy && vm.viewModelDom.remove();
+		});
+	},
+
+	/**
+	 * @param {Function} ViewModelClassToHide
+	 * @returns {void}
+	 */
+	hideScreenPopup = ViewModelClassToHide => {
+		if (ViewModelClassToHide?.__vm && ViewModelClassToHide?.__dom) {
+			ViewModelClassToHide.__vm.modalVisible(false);
+		}
+	},
+
+	/**
+	 * @param {string} screenName
+	 * @param {string} subPart
+	 * @returns {void}
+	 */
+	screenOnRoute = (screenName, subPart) => {
+		let vmScreen = null,
+			isSameScreen = false;
+
+		if (null == screenName || '' == screenName) {
+			screenName = defaultScreenName;
+		}
+
+		if (fireEvent('sm-show-screen', screenName, 1)) {
+
+			// Close all popups
+			for (let vm of visiblePopups) {
+				(false === vm.onClose()) || vm.close();
+			}
 
 			if (screenName) {
-				defaultScreenName || (defaultScreenName = screenName);
+				vmScreen = screen(screenName);
+				if (!vmScreen) {
+					vmScreen = screen(defaultScreenName);
+					if (vmScreen) {
+						subPart = screenName + '/' + subPart;
+						screenName = defaultScreenName;
+					}
+				}
 
+				if (vmScreen?.__started) {
+					isSameScreen = currentScreen && vmScreen === currentScreen;
+
+					if (!vmScreen.__builded) {
+						vmScreen.__builded = true;
+
+						vmScreen.viewModels.forEach(ViewModelClass =>
+							buildViewModel(ViewModelClass, vmScreen)
+						);
+
+						vmScreen.onBuild?.();
+					}
+
+					setTimeout(() => {
+						// hide screen
+						if (currentScreen && !isSameScreen) {
+							hideScreen(currentScreen);
+						}
+						// --
+
+						currentScreen = vmScreen;
+
+						// show screen
+						if (!isSameScreen) {
+							vmScreen.onShow?.();
+
+							forEachViewModel(vmScreen, (vm, dom) => {
+								vm.beforeShow?.();
+								i18nToNodes(dom);
+								dom.hidden = false;
+								vm.onShow?.();
+								autofocus(dom);
+							});
+						}
+						// --
+
+						vmScreen.__cross?.parse(subPart);
+					}, 1);
+				}
+			}
+		}
+	};
+
+
+export const
+	ViewTypePopup = 'popups',
+
+	/**
+	 * @param {Function} ViewModelClassToShow
+	 * @param {Array=} params
+	 * @returns {void}
+	 */
+	showScreenPopup = (ViewModelClassToShow, params = []) => {
+		const vm = buildViewModel(ViewModelClassToShow) && ViewModelClassToShow.__dom && ViewModelClassToShow.__vm;
+
+		if (vm) {
+			params = params || [];
+
+			vm.beforeShow?.(...params);
+
+			vm.modalVisible(true);
+
+			vm.onShow?.(...params);
+		}
+	},
+
+	arePopupsVisible = ko.observable(false),
+
+	/**
+	 * @param {Array} screensClasses
+	 * @returns {void}
+	 */
+	startScreens = screensClasses => {
+		hasher.clear();
+		forEachObjectValue(SCREENS, screen => hideScreen(screen, 1));
+		SCREENS = {};
+		currentScreen = null,
+		defaultScreenName = '';
+
+		screensClasses.forEach(CScreen => {
+			if (CScreen) {
+				const vmScreen = new CScreen(),
+					screenName = vmScreen.screenName;
+				defaultScreenName || (defaultScreenName = screenName);
 				SCREENS[screenName] = vmScreen;
 			}
-		}
-	});
+		});
 
-	Object.values(SCREENS).forEach(vmScreen =>
-		vmScreen && vmScreen.onStart && vmScreen.onStart()
-	);
-
-	const cross = new Crossroads();
-	cross.addRoute(/^([a-zA-Z0-9-]*)\/?(.*)$/, screenOnRoute);
-
-	hasher.changed.add(cross.parse.bind(cross));
-	hasher.init();
-
-	setTimeout(() => $htmlCL.remove('rl-started-trigger'), 100);
-	setTimeout(() => $htmlCL.add('rl-started-delay'), 200);
-}
-
-function decorateKoCommands(thisArg, commands) {
-	Object.entries(commands).forEach(([key, canExecute]) => {
-		let command = thisArg[key],
-			fn = (...args) => fn.enabled() && fn.canExecute() && command.apply(thisArg, args);
-
-//		fn.__realCanExecute = canExecute;
-//		fn.isCommand = true;
-
-		fn.enabled = ko.observable(true);
-
-		fn.canExecute = (typeof canExecute === 'function')
-			? ko.computed(() => fn.enabled() && canExecute.call(thisArg, thisArg))
-			: ko.computed(() => fn.enabled());
-
-		thisArg[key] = fn;
-	});
-}
-ko.decorateCommands = decorateKoCommands;
-
-/**
- * @param {miced} $items
- * @returns {Function}
- */
-function settingsMenuKeysHandler(items) {
-	return ((event, handler)=>{
-		let index = items.length;
-		if (event && index) {
-			while (index-- && !items[index].matches('.selected'));
-			if (handler && 'arrowup' === handler.shortcut) {
-				index && --index;
-			} else if (index < items.length - 1) {
-				++index;
+		forEachObjectValue(SCREENS, vmScreen => {
+			if (!vmScreen.__started) {
+				vmScreen.onStart();
+				vmScreen.__started = true;
 			}
+		});
 
-			const resultHash = items[index].href;
-			resultHash && rl.route.setHash(resultHash, false, true);
-		}
-	}).throttle(200);
-}
+		const cross = new Crossroads();
+		cross.addRoute(/^([a-zA-Z0-9-]*)\/?(.*)$/, screenOnRoute);
 
-export {
-	decorateKoCommands,
-	settingsMenuKeysHandler
-};
+		hasher.add(cross.parse.bind(cross));
+		hasher.init();
+
+		setTimeout(() => $htmlCL.remove('rl-started-trigger'), 100);
+
+		const c = elementById('rl-content'), l = elementById('rl-loading');
+		c && (c.hidden = false);
+		l?.remove();
+	},
+
+	/**
+	 * Used by ko.bindingHandlers.command (template data-bind="command: ")
+	 * to enable/disable click/submit action.
+	 */
+	decorateKoCommands = (thisArg, commands) =>
+		forEachObjectEntry(commands, (key, canExecute) => {
+			let command = thisArg[key],
+				fn = (...args) => fn.canExecute() && command.apply(thisArg, args);
+
+			fn.canExecute = koComputable(() => canExecute.call(thisArg, thisArg));
+
+			thisArg[key] = fn;
+		});
+
+ko.decorateCommands = decorateKoCommands;

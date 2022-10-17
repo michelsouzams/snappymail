@@ -15,8 +15,10 @@ namespace MailSo\Imap;
  * @category MailSo
  * @package Imap
  */
-class FolderInformation
+class FolderInformation implements \JsonSerializable
 {
+	use Traits\Status;
+
 	/**
 	 * @var string
 	 */
@@ -29,56 +31,26 @@ class FolderInformation
 
 	/**
 	 * @var array
+	 * Message flags
 	 */
-	public $Flags;
+	public $Flags = array();
 
 	/**
 	 * @var array
+	 * NOTE: Empty when FolderExamine is used
 	 */
-	public $PermanentFlags;
+	public $PermanentFlags = array();
 
 	/**
+	 * https://datatracker.ietf.org/doc/html/rfc3501#section-7.3.1
 	 * @var int
 	 */
-	public $Exists;
-
-	/**
-	 * @var int
-	 */
-	public $Recent;
-
-	/**
-	 * @var string
-	 */
-	public $Uidvalidity;
-
-	/**
-	 * @var int
-	 */
-	public $Unread;
-
-	/**
-	 * @var string
-	 */
-	public $Uidnext;
-
-	/**
-	 * @var string
-	 */
-	public $HighestModSeq;
+	public $Exists = null;
 
 	function __construct(string $sFolderName, bool $bIsWritable)
 	{
 		$this->FolderName = $sFolderName;
 		$this->IsWritable = $bIsWritable;
-		$this->Exists = null;
-		$this->Recent = null;
-		$this->Flags = array();
-		$this->PermanentFlags = array();
-
-		$this->Unread = null;
-		$this->Uidnext = null;
-		$this->HighestModSeq = null;
 	}
 
 	public function IsFlagSupported(string $sFlag) : bool
@@ -86,5 +58,32 @@ class FolderInformation
 		return \in_array('\\*', $this->PermanentFlags) ||
 			\in_array($sFlag, $this->PermanentFlags) ||
 			\in_array($sFlag, $this->Flags);
+	}
+
+	#[\ReturnTypeWillChange]
+	public function jsonSerialize()
+	{
+		$result = array(
+			'id' => $this->MAILBOXID,
+			'Name' => $this->FolderName,
+			'Flags' => $this->Flags,
+			'PermanentFlags' => $this->PermanentFlags,
+			'UidNext' => $this->UIDNEXT,
+			'UidValidity' => $this->UIDVALIDITY
+		);
+		if (isset($this->MESSAGES)) {
+			$result['totalEmails'] = $this->MESSAGES;
+			$result['unreadEmails'] = $this->UNSEEN;
+		}
+		if (isset($this->HIGHESTMODSEQ)) {
+			$result['Highestmodseq'] = $this->HIGHESTMODSEQ;
+		}
+		if (isset($this->APPENDLIMIT)) {
+			$result['Appendlimit'] = $this->APPENDLIMIT;
+		}
+		if (isset($this->SIZE)) {
+			$result['Size'] = $this->SIZE;
+		}
+		return $result;
 	}
 }

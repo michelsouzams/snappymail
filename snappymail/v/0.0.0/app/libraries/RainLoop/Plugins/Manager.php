@@ -15,7 +15,6 @@ class Manager
 		$aJs = array([], []),
 		$aTemplates = array(),
 		$aAdminTemplates = array(),
-		$aProcessTemplate = array(),
 		$aAdditionalParts = array(),
 		$aAdditionalJson = array(),
 		$aPlugins = array();
@@ -35,17 +34,16 @@ class Manager
 		$this->oLogger = null;
 		$this->oActions = $oActions;
 
-		$oConfig = $this->oActions->Config();
+		$oConfig = $oActions->Config();
 		$this->bIsEnabled = (bool) $oConfig->Get('plugins', 'enable', false);
 		if ($this->bIsEnabled) {
 			$sList = $oConfig->Get('plugins', 'enabled_list', '');
-			if (0 < \strlen($sList)) {
-				$aList = \array_map('trim', \explode(',', $sList));
+			if (\strlen($sList)) {
+				$aList = \SnappyMail\Repository::getEnabledPackagesNames();
 				foreach ($aList as $i => $sName) {
 					$oPlugin = $this->CreatePluginByName($sName);
 					if ($oPlugin) {
 						$oPlugin->Init();
-
 						$this->aPlugins[] = $oPlugin;
 					} else {
 						unset($aList[$i]);
@@ -83,8 +81,11 @@ class Manager
 				->SetName($sName)
 				->SetPath(static::getPluginPath($sName))
 				->SetPluginManager($this)
-				->SetPluginConfig(new \RainLoop\Config\Plugin($sName, $oPlugin->ConfigMap()))
+				->SetPluginConfig(new \RainLoop\Config\Plugin($sName, $oPlugin->ConfigMap(true)))
 			;
+			if (\method_exists($oPlugin, 'SetLogger')) {
+				$oPlugin->SetLogger($this->oLogger);
+			}
 		}
 
 		return $oPlugin;
@@ -110,15 +111,17 @@ class Manager
 				if ($sClassName) {
 					$aList[] = array(
 						$sName,
-						$sClassName::VERSION
+						$sClassName::VERSION,
+						$sClassName::NAME,
+						$sClassName::DESCRIPTION
 					);
 				}
 			}
 		}
 		else
 		{
-			$this->Actions()->Logger()->Write('Cannot get installed plugins from '.APP_PLUGINS_PATH,
-				\MailSo\Log\Enumerations\Type::ERROR);
+			$this->oActions->Logger()->Write('Cannot get installed plugins from '.APP_PLUGINS_PATH,
+				\LOG_ERR);
 		}
 
 		return $aList;
@@ -158,27 +161,24 @@ class Manager
 
 	public function Hash() : string
 	{
-		$sResult = \md5(APP_VERSION);
-		foreach ($this->aPlugins as $oPlugin)
-		{
-			$sResult = \md5($sResult.$oPlugin->Path().$oPlugin->Hash());
-		}
-
-		return $sResult;
+		return \md5(\array_reduce($this->aPlugins, function($sResult, $oPlugin){
+			return $sResult . "|{$oPlugin->Hash()}";
+		}, APP_VERSION));
 	}
 
 	public function HaveJs(bool $bAdminScope = false) : bool
 	{
-		return $this->bIsEnabled && 0 < \count($this->aJs[$bAdminScope ? 1 : 0]);
+		return $this->bIsEnabled && \count($this->aJs[$bAdminScope ? 1 : 0]);
 	}
 
-	public function CompileCss(bool $bAdminScope = false) : string
+	public function CompileCss(bool $bAdminScope, bool &$bLess) : string
 	{
 		$aResult = array();
 		if ($this->bIsEnabled) {
 			foreach ($this->aCss[$bAdminScope ? 1 : 0] as $sFile) {
 				if (\is_readable($sFile)) {
 					$aResult[] = \file_get_contents($sFile);
+					$bLess = $bLess || \str_ends_with($sFile, '.less');
 				}
 			}
 		}
@@ -222,13 +222,13 @@ class Manager
 	{
 		if ($this->bIsEnabled && isset($aAppData['Plugins']) && \is_array($aAppData['Plugins']))
 		{
-			$bAuth = isset($aAppData['Auth']) && !!$aAppData['Auth'];
+			$bAuth = !empty($aAppData['Auth']);
 			foreach ($this->aPlugins as $oPlugin)
 			{
 				if ($oPlugin)
 				{
 					$aConfig = array();
-					$aMap = $oPlugin->ConfigMap();
+					$aMap = $oPlugin->ConfigMap(true);
 					if (\is_array($aMap))
 					{
 						foreach ($aMap as /* @var $oPluginProperty \RainLoop\Plugins\Property */ $oPluginProperty)
@@ -245,7 +245,7 @@ class Manager
 
 					$oPlugin->FilterAppDataPluginSection($bAdmin, $bAuth, $aConfig);
 
-					if (0 < \count($aConfig))
+					if (\count($aConfig))
 					{
 						$aAppData['Plugins'][$oPlugin->Name()] = $aConfig;
 					}
@@ -279,7 +279,7 @@ class Manager
 	public function AddCss(string $sFile, bool $bAdminScope = false) : self
 	{
 		if ($this->bIsEnabled) {
-			$this->aCss[$bAdminScope ? 1 : 0] = $sFile;
+			$this->aCss[$bAdminScope ? 1 : 0][] = $sFile;
 		}
 		return $this;
 	}
@@ -318,12 +318,12 @@ class Manager
 			{
 				if ($bLogHook)
 				{
-					$this->WriteLog('Hook: '.$sHookName, \MailSo\Log\Enumerations\Type::NOTE);
+					$this->WriteLog('Hook: '.$sHookName, \LOG_INFO);
 				}
 
 				foreach ($this->aHooks[$sHookName] as $mCallback)
 				{
-					\call_user_func_array($mCallback, $aArg);
+					$mCallback(...$aArg);
 				}
 			}
 		}
@@ -360,7 +360,7 @@ class Manager
 			{
 				foreach ($this->aAdditionalParts[$sActionName] as $mCallbak)
 				{
-					$bCallResult = \call_user_func_array($mCallbak, $aParts);
+					$bCallResult = $mCallbak(...$aParts);
 					if ($bCallResult && !$bResult)
 					{
 						$bResult = true;
@@ -372,39 +372,12 @@ class Manager
 		return $bResult;
 	}
 
-	public function AddProcessTemplateAction(string $sName, string $sPlace, string $sHtml, bool $bPrepend = false) : self
-	{
-		if ($this->bIsEnabled)
-		{
-			if (!isset($this->aProcessTemplate[$sName]))
-			{
-				$this->aProcessTemplate[$sName] = array();
-			}
-
-			if (!isset($this->aProcessTemplate[$sName][$sPlace]))
-			{
-				$this->aProcessTemplate[$sName][$sPlace] = array();
-			}
-
-			if ($bPrepend)
-			{
-				\array_unshift($this->aProcessTemplate[$sName][$sPlace], $sHtml);
-			}
-			else
-			{
-				\array_push($this->aProcessTemplate[$sName][$sPlace], $sHtml);
-			}
-		}
-
-		return $this;
-	}
-
 	/**
 	 * @param mixed $mCallback
 	 */
 	public function AddAdditionalJsonAction(string $sActionName, $mCallback) : self
 	{
-		if ($this->bIsEnabled && \is_callable($mCallback) && 0 < \strlen($sActionName))
+		if ($this->bIsEnabled && \is_callable($mCallback) && \strlen($sActionName))
 		{
 			$sActionName = 'DoPlugin'.$sActionName;
 
@@ -431,7 +404,7 @@ class Manager
 		{
 			if (isset($this->aAdditionalJson[$sActionName]))
 			{
-				return \call_user_func($this->aAdditionalJson[$sActionName]);
+				return $this->aAdditionalJson[$sActionName]();
 			}
 		}
 
@@ -500,16 +473,15 @@ class Manager
 		return false;
 	}
 
-	public function ReadLang(string $sLang, array &$aLang) : self
+	public function ReadLang(string $sLang, array &$aLang) : void
 	{
-		if ($this->bIsEnabled)
-		{
-			foreach ($this->aPlugins as $oPlugin)
-			{
-				if ($oPlugin->UseLangs())
-				{
+		if ($this->bIsEnabled) {
+			foreach ($this->aPlugins as $oPlugin) {
+				if ($oPlugin->UseLangs()) {
 					$sPath = $oPlugin->Path().'/langs/';
 					$aPLang = [];
+
+					// First get english
 					if (\is_file("{$sPath}en.ini")) {
 						$aPLang = \parse_ini_file("{$sPath}en.ini", true);
 					} else if (\is_file("{$sPath}en.json")) {
@@ -519,8 +491,8 @@ class Manager
 						$aLang = \array_replace_recursive($aLang, $aPLang);
 					}
 
-					if ('en' !== $sLang)
-					{
+					// Now get native
+					if ('en' !== $sLang) {
 						$aPLang = [];
 						if (\is_file("{$sPath}{$sLang}.ini")) {
 							$aPLang = \parse_ini_file("{$sPath}{$sLang}.ini", true);
@@ -536,8 +508,6 @@ class Manager
 				}
 			}
 		}
-
-		return $this;
 	}
 
 	public function IsEnabled() : bool
@@ -557,7 +527,7 @@ class Manager
 		return $this;
 	}
 
-	public function WriteLog(string $sDesc, int $iType = \MailSo\Log\Enumerations\Type::INFO) : void
+	public function WriteLog(string $sDesc, int $iType = \LOG_INFO) : void
 	{
 		if ($this->oLogger)
 		{
@@ -565,7 +535,7 @@ class Manager
 		}
 	}
 
-	public function WriteException(string $sDesc, int $iType = \MailSo\Log\Enumerations\Type::INFO) : void
+	public function WriteException(string $sDesc, int $iType = \LOG_INFO) : void
 	{
 		if ($this->oLogger)
 		{

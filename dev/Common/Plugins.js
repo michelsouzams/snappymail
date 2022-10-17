@@ -1,5 +1,6 @@
 import { settingsAddViewModel } from 'Screen/AbstractSettings';
 import { SettingsGet } from 'Common/Globals';
+import { AbstractViewPopup } from 'Knoin/AbstractViews';
 
 const USER_VIEW_MODELS_HOOKS = [],
 	ADMIN_VIEW_MODELS_HOOKS = [];
@@ -11,7 +12,7 @@ const USER_VIEW_MODELS_HOOKS = [],
  * @param {?number=} timeout
  */
 rl.pluginRemoteRequest = (callback, action, parameters, timeout) => {
-	rl.app && rl.app.Remote.defaultRequest(callback, 'Plugin' + action, parameters, timeout);
+	rl.app.Remote.request('Plugin' + action, callback, parameters, timeout);
 };
 
 /**
@@ -38,9 +39,9 @@ rl.addSettingsViewModelForAdmin = (SettingsViewModelClass, template, labelName, 
  * @param {boolean} admin
  */
 export function runSettingsViewModelHooks(admin) {
-	(admin ? ADMIN_VIEW_MODELS_HOOKS : USER_VIEW_MODELS_HOOKS).forEach(view => {
-		settingsAddViewModel(view[0], view[1], view[2], view[3]);
-	});
+	(admin ? ADMIN_VIEW_MODELS_HOOKS : USER_VIEW_MODELS_HOOKS).forEach(view =>
+		settingsAddViewModel(...view)
+	);
 }
 
 /**
@@ -48,8 +49,7 @@ export function runSettingsViewModelHooks(admin) {
  * @param {string} name
  * @returns {?}
  */
-rl.pluginSettingsGet = (pluginSection, name) => {
-	let plugins = SettingsGet('Plugins');
-	plugins = plugins && null != plugins[pluginSection] ? plugins[pluginSection] : null;
-	return plugins ? (null == plugins[name] ? null : plugins[name]) : null;
-};
+rl.pluginSettingsGet = (pluginSection, name) =>
+	SettingsGet('Plugins')?.[pluginSection]?.[name];
+
+rl.pluginPopupView = AbstractViewPopup;

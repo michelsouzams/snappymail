@@ -3,9 +3,10 @@
 class DemoAccountPlugin extends \RainLoop\Plugins\AbstractPlugin
 {
 	const
-		NAME     = '',
+		NAME     = 'Demo Account Extension',
 		CATEGORY = 'Login',
-		DESCRIPTION = '';
+		REQUIRED = '2.14.0',
+		DESCRIPTION = 'Extension to enable a demo account';
 
 	/**
 	 * @return void
@@ -28,7 +29,9 @@ class DemoAccountPlugin extends \RainLoop\Plugins\AbstractPlugin
 			\RainLoop\Plugins\Property::NewInstance('email')->SetLabel('Demo Email')
 				->SetDefaultValue('demo@domain.com'),
 			\RainLoop\Plugins\Property::NewInstance('password')->SetLabel('Demo Password')
-				->SetType(\RainLoop\Enumerations\PluginPropertyType::PASSWORD)
+				->SetType(\RainLoop\Enumerations\PluginPropertyType::PASSWORD),
+			\RainLoop\Plugins\Property::NewInstance('recipient_delimiter')->SetLabel('recipient_delimiter')
+				->SetDefaultValue(''),
 		);
 	}
 
@@ -37,8 +40,7 @@ class DemoAccountPlugin extends \RainLoop\Plugins\AbstractPlugin
 	 */
 	public function FilterAppData($bAdmin, &$aResult)
 	{
-		if (!$bAdmin && \is_array($aResult) && isset($aResult['Auth']) && !$aResult['Auth'])
-		{
+		if (!$bAdmin && \is_array($aResult) && empty($aResult['Auth'])) {
 			$aResult['DevEmail'] = $this->Config()->Get('plugin', 'email', $aResult['DevEmail']);
 			$aResult['DevPassword'] = APP_DUMMY;
 		}
@@ -49,11 +51,18 @@ class DemoAccountPlugin extends \RainLoop\Plugins\AbstractPlugin
 	 */
 	public function FilterActionParams($sMethodName, &$aActionParams)
 	{
-		if ('DoLogin' === $sMethodName && isset($aActionParams['Email']) && isset($aActionParams['Password']))
-		{
-			if ($this->Config()->Get('plugin', 'email') === $aActionParams['Email'])
-			{
-				$aActionParams['Password'] = $this->Config()->Get('plugin', 'password');
+		if ('DoLogin' === $sMethodName
+		 && isset($aActionParams['Email'])
+		 && isset($aActionParams['Password'])
+		 && $this->Config()->Get('plugin', 'email') === $aActionParams['Email']) {
+			$aActionParams['Password'] = $this->Config()->Get('plugin', 'password');
+		}
+		else if ('DoFolderCreate' === $sMethodName || 'DoFolderRename' === $sMethodName) {
+			// Block spam https://github.com/the-djmaze/snappymail/issues/371
+			$latin = transliterator_transliterate('Any-Latin; Latin-ASCII; Lower()', $aActionParams['Folder']);
+			if (false !== \strpos($latin, 'nigger')) {
+				\error_log("blocked {$sMethodName} {$aActionParams['Folder']}");
+				exit;
 			}
 		}
 	}
@@ -63,25 +72,43 @@ class DemoAccountPlugin extends \RainLoop\Plugins\AbstractPlugin
 	 *
 	 * @return bool
 	 */
-	public function isDemoAccount($oAccount)
+	private function isDemoAccount()
 	{
+		$oAccount = $this->Manager()->Actions()->GetAccount();
 		return ($oAccount && $oAccount->Email() === $this->Config()->Get('plugin', 'email'));
 	}
 
 	public function JsonActionPreCall($sAction)
 	{
-		if ('AccountSetup' === $sAction &&
-			$this->isDemoAccount($this->Manager()->Actions()->GetAccount()))
-		{
+		if ('AccountSetup' === $sAction && $this->isDemoAccount()) {
 			throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::DemoAccountError);
 		}
 	}
 
-	public function FilterSendMessage(&$oMessage)
+	public function FilterSendMessage($oMessage)
 	{
-		if ($oMessage && $this->isDemoAccount($this->Manager()->Actions()->GetAccount()))
-		{
-			throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::DemoSendMessageError);
+		if ($oMessage && $this->isDemoAccount()) {
+			$recipient_delimiter = $this->Config()->Get('plugin', 'recipient_delimiter');
+			$regex = '/^' . \preg_quote($this->Config()->Get('plugin', 'email')) . '$/D';
+			if ($recipient_delimiter) {
+				$regex = \str_replace('@', '('.\preg_quote($recipient_delimiter).'.+)?@', $regex);
+			}
+			foreach ($oMessage->GetTo() as $oEmail) {
+				if (!\preg_match($regex, $oEmail->GetEmail())) {
+					throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::DemoSendMessageError);
+				}
+			}
+			foreach ($oMessage->GetCc() ?: [] as $oEmail) {
+				if (!\preg_match($regex, $oEmail->GetEmail())) {
+					throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::DemoSendMessageError);
+				}
+			}
+			foreach ($oMessage->GetBcc() ?: [] as $oEmail) {
+				if (!\preg_match($regex, $oEmail->GetEmail())) {
+					throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::DemoSendMessageError);
+				}
+			}
+//			throw new \RainLoop\Exceptions\ClientException(\RainLoop\Notifications::DemoSendMessageError);
 		}
 	}
 
@@ -91,22 +118,10 @@ class DemoAccountPlugin extends \RainLoop\Plugins\AbstractPlugin
 	 */
 	public function MainFabrica($sName, &$oDriver)
 	{
-		switch ($sName)
-		{
-			case 'storage':
-			case 'storage-local':
-				if (\class_exists('\\RainLoop\\Providers\\Storage\\TemproryApcStorage') &&
-					\function_exists('apc_store'))
-				{
-					$oAccount = $this->Manager()->Actions()->GetAccount();
-					if ($this->isDemoAccount($oAccount))
-					{
-						$oDriver = new \RainLoop\Providers\Storage\TemproryApcStorage(APP_PRIVATE_DATA.'storage',
-							$sName === 'storage-local');
-					}
-				}
-				break;
+		if ('storage' === $sName || 'storage-local' === $sName) {
+			require_once __DIR__ . '/storage.php';
+			$oDriver = new \DemoStorage(APP_PRIVATE_DATA.'storage', $sName === 'storage-local');
+			$oDriver->setDemoEmail($this->Config()->Get('plugin', 'email'));
 		}
 	}
 }
-

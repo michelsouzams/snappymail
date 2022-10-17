@@ -9,7 +9,7 @@ module.exports = {
 	env: {
 		node: true,
 		browser: true,
-		es6: true
+		es2020: true
 	},
 	globals: {
 		// SnappyMail
@@ -27,15 +27,15 @@ module.exports = {
 		'SquireUI': "readonly",
 		// node_modules/knockout but dev/External/ko.js is used
 		'ko': "readonly",
-		// dev/External/ifvisible.js
-		'ifvisible': "readonly",
 		// vendors/routes/
 		'hasher': "readonly",
 		'Crossroads': "readonly",
 		// vendors/jua
 		'Jua': "readonly",
 		// vendors/bootstrap/bootstrap.native.js
-		'BSN': "readonly"
+		'BSN': "readonly",
+		// Mailvelope
+		'mailvelope': "readonly"
 	},
 	// http://eslint.org/docs/rules/
 	rules: {
@@ -51,6 +51,7 @@ module.exports = {
 				ignoreTrailingComments: true,
 				ignorePattern: '(^\\s*(const|let|var)\\s.+=\\s*require\\s*\\(|^import\\s.+\\sfrom\\s.+;$)'
 			}
-		]
+		],
+		'no-constant-condition': ["error", { "checkLoops": false }]
 	}
 };

@@ -3,23 +3,25 @@
 class OverrideSmtpCredentialsPlugin extends \RainLoop\Plugins\AbstractPlugin
 {
 	const
-		NAME = 'Override Smtp Credentials',
-		VERSION = '2.1',
-		RELEASE = '2021-04-21',
+		NAME = 'Override SMTP Credentials',
+		VERSION = '2.2',
+		RELEASE = '2022-04-13',
 		REQUIRED = '2.5.0',
 		CATEGORY = 'Filters',
-		DESCRIPTION = 'Plugin which allows you to override smtp credentials specified users.';
+		DESCRIPTION = 'Override SMTP credentials for specific users.';
 
 	public function Init() : void
 	{
-		$this->addHook('smtp.credentials', 'FilterSmtpCredentials');
+		$this->addHook('smtp.before-connect', 'FilterSmtpCredentials');
+		$this->addHook('smtp.before-login', 'FilterSmtpCredentials');
 	}
 
 	/**
 	 * @param \RainLoop\Model\Account $oAccount
+	 * @param \MailSo\Smtp\SmtpClient $oSmtpClient
 	 * @param array $aSmtpCredentials
 	 */
-	public function FilterSmtpCredentials($oAccount, &$aSmtpCredentials)
+	public function FilterSmtpCredentials($oAccount, $oSmtpClient, &$aSmtpCredentials)
 	{
 		if ($oAccount instanceof \RainLoop\Model\Account && \is_array($aSmtpCredentials))
 		{
@@ -28,8 +30,10 @@ class OverrideSmtpCredentialsPlugin extends \RainLoop\Plugins\AbstractPlugin
 			$sHost = \trim($this->Config()->Get('plugin', 'smtp_host', ''));
 			$sWhiteList = \trim($this->Config()->Get('plugin', 'override_users', ''));
 
-			if (0 < strlen($sWhiteList) && 0 < \strlen($sHost) && \RainLoop\Plugins\Helper::ValidateWildcardValues($sEmail, $sWhiteList))
+			$sFoundValue = '';
+			if (0 < strlen($sWhiteList) && 0 < \strlen($sHost) && \RainLoop\Plugins\Helper::ValidateWildcardValues($sEmail, $sWhiteList, $sFoundValue))
 			{
+				\SnappyMail\LOG::debug('SMTP Override', "{$sEmail} matched {$sFoundValue}");
 				$aSmtpCredentials['Host'] = $sHost;
 				$aSmtpCredentials['Port'] = (int) $this->Config()->Get('plugin', 'smtp_port', 25);
 
@@ -50,6 +54,10 @@ class OverrideSmtpCredentialsPlugin extends \RainLoop\Plugins\AbstractPlugin
 				$aSmtpCredentials['UseAuth'] = (bool) $this->Config()->Get('plugin', 'smtp_auth', true);
 				$aSmtpCredentials['Login'] = \trim($this->Config()->Get('plugin', 'smtp_user', ''));
 				$aSmtpCredentials['Password'] = (string) $this->Config()->Get('plugin', 'smtp_password', '');
+			}
+			else
+			{
+				\SnappyMail\LOG::debug('SMTP Override', "{$sEmail} no match");
 			}
 		}
 	}

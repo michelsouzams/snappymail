@@ -8,23 +8,33 @@ return [
 			'verb' => 'GET'
 		],
 		[
+			'name' => 'page#indexPost',
+			'url' => '/',
+			'verb' => 'POST'
+		],
+		[
 			'name' => 'page#appGet',
-			'url' => '/app/',
+			'url' => '/run/',
 			'verb' => 'GET'
 		],
 		[
 			'name' => 'page#appPost',
-			'url' => '/app/',
+			'url' => '/run/',
 			'verb' => 'POST'
 		],
 		[
-			'name' => 'ajax#setPersonal',
-			'url' => '/ajax/personal.php',
+			'name' => 'fetch#setPersonal',
+			'url' => '/fetch/personal.php',
 			'verb' => 'POST'
 		],
 		[
-			'name' => 'ajax#setAdmin',
-			'url' => '/ajax/admin.php',
+			'name' => 'fetch#setAdmin',
+			'url' => '/fetch/admin.php',
+			'verb' => 'POST'
+		],
+		[
+			'name' => 'fetch#upgrade',
+			'url' => '/fetch/upgrade',
 			'verb' => 'POST'
 		]
 	]

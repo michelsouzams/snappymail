@@ -9,15 +9,13 @@ class koSubscription
         this._node = null;
         this._domNodeDisposalCallback = null;
         ko.exportProperty(this, 'dispose', this.dispose);
-        ko.exportProperty(this, 'disposeWhenNodeIsRemoved', this.disposeWhenNodeIsRemoved);
     }
 
     dispose() {
         var self = this;
         if (!self._isDisposed) {
-            if (self._domNodeDisposalCallback) {
-                ko.utils.domNodeDisposal.removeDisposeCallback(self._node, self._domNodeDisposalCallback);
-            }
+            self._domNodeDisposalCallback
+            && ko.utils.domNodeDisposal.removeDisposeCallback(self._node, self._domNodeDisposalCallback);
             self._isDisposed = true;
             self._disposeCallback();
 
@@ -41,7 +39,8 @@ var defaultEvent = "change";
 
 var ko_subscribable_fn = {
     init: instance => {
-        instance._subscriptions = { "change": [] };
+        instance._subscriptions = new Map();
+        instance._subscriptions.set("change", new Set);
         instance._versionNumber = 1;
     },
 
@@ -52,37 +51,32 @@ var ko_subscribable_fn = {
         var boundCallback = callbackTarget ? callback.bind(callbackTarget) : callback;
 
         var subscription = new koSubscription(self, boundCallback, () => {
-            ko.utils.arrayRemoveItem(self._subscriptions[event], subscription);
-            if (self.afterSubscriptionRemove)
-                self.afterSubscriptionRemove(event);
+            self._subscriptions.get(event).delete(subscription);
+            self.afterSubscriptionRemove?.(event);
         });
 
-        if (self.beforeSubscriptionAdd)
-            self.beforeSubscriptionAdd(event);
+        self.beforeSubscriptionAdd?.(event);
 
-        if (!self._subscriptions[event])
-            self._subscriptions[event] = [];
-        self._subscriptions[event].push(subscription);
+        self._subscriptions.has(event) || self._subscriptions.set(event, new Set);
+        self._subscriptions.get(event).add(subscription);
 
         return subscription;
     },
 
-    "notifySubscribers": function (valueToNotify, event) {
+    notifySubscribers: function (valueToNotify, event) {
         event = event || defaultEvent;
         if (event === defaultEvent) {
             this.updateVersion();
         }
         if (this.hasSubscriptionsForEvent(event)) {
-            var subs = event === defaultEvent && this._changeSubscriptions || this._subscriptions[event].slice(0);
+            var subs = event === defaultEvent && this._changeSubscriptions || new Set(this._subscriptions.get(event));
             try {
                 ko.dependencyDetection.begin(); // Begin suppressing dependency detection (by setting the top frame to undefined)
-                var i = 0, subscription;
-                while ((subscription = subs[i++])) {
+                subs.forEach(subscription => {
                     // In case a subscription was disposed during the arrayForEach cycle, check
                     // for isDisposed on each subscription before invoking its callback
-                    if (!subscription._isDisposed)
-                        subscription._callback(valueToNotify);
-                }
+                    subscription._isDisposed || subscription._callback(valueToNotify);
+                });
             } finally {
                 ko.dependencyDetection.end(); // End suppressing dependency detection
             }
@@ -107,15 +101,15 @@ var ko_subscribable_fn = {
             beforeChange = 'beforeChange';
 
         if (!self._origNotifySubscribers) {
-            self._origNotifySubscribers = self["notifySubscribers"];
+            self._origNotifySubscribers = self.notifySubscribers;
             // Moved out of "limit" to avoid the extra closure
-            self["notifySubscribers"] = function(value, event) {
+            self.notifySubscribers = (value, event) => {
                 if (!event || event === defaultEvent) {
-                    this._limitChange(value);
-                } else if (event === 'beforeChange') {
-                    this._limitBeforeChange(value);
+                    self._limitChange(value);
+                } else if (event === beforeChange) {
+                    self._limitBeforeChange(value);
                 } else {
-                    this._origNotifySubscribers(value, event);
+                    self._origNotifySubscribers(value, event);
                 }
             }
         }
@@ -141,7 +135,7 @@ var ko_subscribable_fn = {
             if (!isDirty || !self._notificationIsPending) {
                 didUpdate = !isDirty;
             }
-            self._changeSubscriptions = self._subscriptions[defaultEvent].slice(0);
+            self._changeSubscriptions = new Set(self._subscriptions.get(defaultEvent));
             self._notificationIsPending = ignoreBeforeChange = true;
             pendingValue = value;
             finish();
@@ -163,11 +157,11 @@ var ko_subscribable_fn = {
     },
 
     hasSubscriptionsForEvent: function(event) {
-        return this._subscriptions[event] && this._subscriptions[event].length;
+        return (this._subscriptions.get(event) || []).size;
     },
 
     isDifferent: function(oldValue, newValue) {
-        return !this['equalityComparer'] || !this['equalityComparer'](oldValue, newValue);
+        return !this.equalityComparer || !this.equalityComparer(oldValue, newValue);
     },
 
     toString: () => '[object Object]',
@@ -199,4 +193,4 @@ ko.subscribable['fn'] = ko_subscribable_fn;
 
 
 ko.isSubscribable = instance =>
-    instance != null && typeof instance.subscribe == "function" && typeof instance["notifySubscribers"] == "function";
+    typeof instance?.subscribe == "function" && typeof instance.notifySubscribers == "function";

@@ -42,7 +42,7 @@ class Email implements \JsonSerializable
 	 */
 	function __construct(string $sEmail, string $sDisplayName = '')
 	{
-		if (!strlen(\trim($sEmail)))
+		if (!\strlen(\trim($sEmail)))
 		{
 			throw new \MailSo\Base\Exceptions\InvalidArgumentException;
 		}
@@ -62,7 +62,7 @@ class Email implements \JsonSerializable
 	public static function Parse(string $sEmailAddress) : self
 	{
 		$sEmailAddress = \MailSo\Base\Utils::Trim($sEmailAddress);
-		if (!strlen(\trim($sEmailAddress)))
+		if (!\strlen(\trim($sEmailAddress)))
 		{
 			throw new \MailSo\Base\Exceptions\InvalidArgumentException;
 		}
@@ -242,10 +242,10 @@ class Email implements \JsonSerializable
 		}
 
 		$sDisplayName = 0 === \strlen($sDisplayName) ? '' : '"'.$sDisplayName.'"';
-		if (0 < \strlen($this->sEmail))
+		if (\strlen($this->sEmail))
 		{
 			$sReturn = $this->GetEmail($bIdn);
-			if (0 < \strlen($sDisplayName))
+			if (\strlen($sDisplayName))
 			{
 				$sReturn = $sDisplayName.' <'.$sReturn.'>';
 			}
@@ -254,14 +254,22 @@ class Email implements \JsonSerializable
 		return \trim($sReturn);
 	}
 
+	#[\ReturnTypeWillChange]
 	public function jsonSerialize()
 	{
+/*
+		$BIMI = '';
+		if (Enumerations\DkimStatus::PASS == $this->GetDkimStatus()) {
+			$BIMI = \SnappyMail\DNS\BIMI($this->GetDomain());
+		}
+*/
 		return array(
 			'@Object' => 'Object/Email',
 			'Name' => \MailSo\Base\Utils::Utf8Clear($this->GetDisplayName()),
 			'Email' => \MailSo\Base\Utils::Utf8Clear($this->GetEmail(true)),
 			'DkimStatus' => $this->GetDkimStatus(),
-			'DkimValue' => $this->GetDkimValue()
+			'DkimValue' => $this->GetDkimValue(),
+			'BIMI' => $BIMI
 		);
 	}
 }

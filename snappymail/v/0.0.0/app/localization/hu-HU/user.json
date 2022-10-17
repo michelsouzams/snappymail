@@ -20,14 +20,19 @@
 		"NAME": "Beérkező levelek",
 		"NONE": "Semmi",
 		"NOT_SPAM": "Nem szemét",
+		"USERNAME": "Felhasználónév",
 		"PASSWORD": "Jelszó",
 		"REPLY_TO": "Válaszcím",
 		"SAVE": "Mentés",
+		"SAVE_CHANGES": "Save changes?",
 		"SEARCH": "Nem találtam névjegyeket",
 		"SPAM": "Levélszemét",
 		"SUBJECT": "Tárgy",
 		"TEST": "Tesztelés",
-		"TO": "Címzett"
+		"TO": "Címzett",
+		"SERVER_MESSAGE": "Server message",
+		"YES": "Igen",
+		"NO": "Nem"
 	},
 	"LOGIN": {
 		"LABEL_LOGIN": "Bejelentkezés",
@@ -45,27 +50,24 @@
 	},
 	"SEARCH": {
 		"TITLE_ADV": "Részletes keresés",
-		"LABEL_ADV_TEXT": "Szöveg",
-		"LABEL_ADV_HAS_ATTACHMENT": "Van melléklete",
-		"LABEL_ADV_HAS_ATTACHMENTS": "Vannak mellékletei",
-		"LABEL_ADV_FLAGGED": "Megjelölve",
-		"LABEL_ADV_UNSEEN": "Észrevétlen",
-		"LABEL_ADV_DATE": "Dátum",
-		"LABEL_ADV_DATE_ALL": "Összes",
-		"LABEL_ADV_DATE_3_DAYS": "Legfeljebb 3 napos",
-		"LABEL_ADV_DATE_7_DAYS": "Legfeljebb 1 hetes",
-		"LABEL_ADV_DATE_MONTH": "Legfeljebb 1 hónapos",
-		"LABEL_ADV_DATE_3_MONTHS": "Legfeljebb 3 hónapos",
-		"LABEL_ADV_DATE_6_MONTHS": "Legfeljebb 6 hónapos",
-		"LABEL_ADV_DATE_YEAR": "Legfeljebb 1 éves"
-	},
-	"PREVIEW_POPUP": {
-		"FULLSCREEN": "Teljes képernyő váltása",
-		"ZOOM": "Nagyítás ki\/be",
-		"CLOSE": "Bezárás (Esc)",
-		"GALLERY_PREV": "Előző (Bal nyíl gomb)",
-		"GALLERY_NEXT": "Következő (Jobb nyíl gomb)",
-		"GALLERY_COUNTER": "%curr% \/ %total%"
+		"TEXT": "Szöveg",
+		"HAS_ATTACHMENT": "Van melléklete",
+		"FLAGGED": "Megjelölve",
+		"UNSEEN": "Észrevétlen",
+		"DATE": "Dátum",
+		"DATE_ALL": "Összes",
+		"DATE_3_DAYS": "Legfeljebb 3 napos",
+		"DATE_7_DAYS": "Legfeljebb 1 hetes",
+		"DATE_MONTH": "Legfeljebb 1 hónapos",
+		"DATE_3_MONTHS": "Legfeljebb 3 hónapos",
+		"DATE_6_MONTHS": "Legfeljebb 6 hónapos",
+		"DATE_YEAR": "Legfeljebb 1 éves",
+		"SUBFOLDERS": "Subfolders",
+		"SUBFOLDERS_NONE": "None",
+		"SUBFOLDERS_SUBTREE": "All",
+		"SUBFOLDERS_SUBTREE_ONE": "One level",
+		"REPLIED": "Válaszolt",
+		"KEYWORD": "Tag"
 	},
 	"FOLDER_LIST": {
 		"BUTTON_COMPOSE": "Levélírás",
@@ -99,7 +101,6 @@
 		"EMPTY_SEARCH_LIST": "Nincs a keresésnek megfelelő levél.",
 		"SEARCH_RESULT_FOR": "Keresési eredmények ehhez: \"%SEARCH%\"",
 		"BACK_TO_MESSAGE_LIST": "vissza az üzenetlistához",
-		"EMPTY_SUBJECT_TEXT": "(Nincs tárgy)",
 		"PUT_MESSAGE_HERE": "Húzz ide egy üzenetet, hogy megjelenjen a listában",
 		"TODAY_AT": "ma ekkor: %TIME%",
 		"YESTERDAY_AT": "tegnap ekkor: %TIME%",
@@ -132,6 +133,8 @@
 		"BUTTON_THREAD_MORE": "További üzenetek",
 		"MENU_HEADERS": "Üzenet fejléc megjelenítése",
 		"MENU_VIEW_ORIGINAL": "Eredeti megjelenítése",
+		"HTML_VIEW": "View HTML message",
+		"PLAIN_VIEW": "View plain text message",
 		"MENU_DOWNLOAD_ORIGINAL": ".eml fájl letöltés",
 		"MENU_FILTER_SIMILAR": "Hasonló üzenetek szűrése",
 		"MENU_PRINT": "Nyomtatás",
@@ -142,10 +145,20 @@
 		"PRINT_LABEL_ATTACHMENTS": "Mellékletek",
 		"MESSAGE_VIEW_DESC": "Válassz egy üzenetet a listából, hogy megjelenjen itt.",
 		"MESSAGE_VIEW_MOVE_DESC": "A cél kiválasztásához a bal oldali panelen kattints a mappa nevére.",
-		"PGP_SIGNED_MESSAGE_DESC": "OpenPGP aláírt üzenet (kattints az ellenőrzéshez)",
-		"PGP_ENCRYPTED_MESSAGE_DESC": "OpenPGP kódolt üzenet (kattints a visszafejtéshez)",
 		"LINK_DOWNLOAD_AS_ZIP": "Letöltés zip fájlként",
-		"SPAM_SCORE": "Spam Score"
+		"SPAM_SCORE": "Spam Score",
+		"HAS_VIRUS_WARNING": "FIGYELEM: vírust észleltünk",
+		"TAGS": "Tags",
+		"NEW_TAG": "New tag"
+	},
+	"MESSAGE_TAGS": {
+		"$important": "Important",
+		"$todo": "To Do",
+		"$label1": "Important",
+		"$label2": "Work",
+		"$label3": "Personal",
+		"$label4": "To Do",
+		"$label5": "Later"
 	},
 	"READ_RECEIPT": {
 		"SUBJECT": "Visszaigazolás (megjelenítve) - %SUBJECT%",
@@ -155,6 +168,17 @@
 		"SEARCHING_DESC": "Keresés..."
 	},
 	"CONTACTS": {
+		"TAB_CONTACT": "Contact",
+		"TAB_LOCATIONS": "Locations",
+		"TAB_BUSINESS": "Business",
+		"LABEL_ORGANIZATION": "Organization",
+		"LABEL_DEPARTMENT": "Department",
+		"LABEL_TITLE": "Title",
+		"TAB_CRYPTO": "Crypto",
+		"ASK": "Ask",
+		"NEVER": "Never",
+		"ALWAYS": "Always",
+		"ALWAYS_IF_POSSIBLE": "Always if possible",
 		"BUTTON_ADD_CONTACT": "Névjegy hozzáadás",
 		"BUTTON_CREATE_CONTACT": "Létrehozás",
 		"BUTTON_UPDATE_CONTACT": "Frissítés",
@@ -166,21 +190,15 @@
 		"EMPTY_SEARCH": "Nem találtam névjegyeket",
 		"CLEAR_SEARCH": "Keresés törlése",
 		"CONTACT_VIEW_DESC": "Válassz egy névjegyet a listából, hogy itt megjelenjen.",
-		"LABEL_PHONE": "Telefonszám",
-		"LABEL_WEB": "Web",
 		"LABEL_BIRTHDAY": "Születésnap",
-		"LINK_ADD_EMAIL": "Adj meg egy e-mail címet",
-		"LINK_ADD_PHONE": "Adj meg egy telefonszámot",
-		"LINK_BIRTHDAY": "Születésnap",
 		"PLACEHOLDER_ENTER_DISPLAY_NAME": "Add meg a megjelenítendő nevet",
 		"PLACEHOLDER_ENTER_LAST_NAME": "Add meg a vezetéknevet",
 		"PLACEHOLDER_ENTER_FIRST_NAME": "Add meg a keresztnevet",
 		"PLACEHOLDER_ENTER_NICK_NAME": "Add meg a felhasználónevet",
 		"LABEL_READ_ONLY": "Csak olvasás",
-		"LABEL_SHARE": "Megosztás",
 		"ADD_MENU_LABEL": "Hozzáadás",
 		"ADD_MENU_NICKNAME": "Felhasználónév",
-		"ADD_MENU_NOTES": "Jegyzetek",
+		"ADD_MENU_NOTE": "Jegyzetek",
 		"ADD_MENU_PHONE": "Telefonszám",
 		"ADD_MENU_URL": "URL",
 		"ADD_MENU_ADDRESS": "Cím",
@@ -207,12 +225,9 @@
 		"ATTACHMENTS_UPLOAD_ERROR_DESC": "Még nem lett feltöltve minden melléklet.",
 		"BUTTON_REQUEST_READ_RECEIPT": "Olvasási visszaigazolás kérése",
 		"BUTTON_MARK_AS_IMPORTANT": "Megjelölés fontosként",
-		"BUTTON_OPEN_PGP": "OpenPGP (csak egyszerű szöveg)",
 		"BUTTON_REQUEST_DSN": "Továbbítási visszaigazolás kérés"
 	},
 	"POPUPS_ASK": {
-		"BUTTON_YES": "Igen",
-		"BUTTON_NO": "Nem",
 		"DESC_WANT_CLOSE_THIS_WINDOW": "Biztos, hogy be akarod zárni ezt az ablakot?",
 		"DESC_WANT_DELETE_MESSAGES": "Biztos, hogy törölni akarod az üzenete(ke)t?"
 	},
@@ -245,31 +260,24 @@
 		"DANGER_DESC_HTML_2": "Ha egyszer elindult, a folyamatot nem lehet megszakítani.",
 		"TITLE_CLEARING_PROCESS": "Mappa ürítés..."
 	},
-	"POPUPS_IMPORT_OPEN_PGP_KEY": {
-		"TITLE_IMPORT_OPEN_PGP_KEY": "OpenPGP kulcs importálás",
-		"BUTTON_IMPORT_OPEN_PGP_KEY": "Importálás"
-	},
-	"POPUPS_VIEW_OPEN_PGP_KEY": {
-		"TITLE_VIEW_OPEN_PGP_KEY": "OpenPGP kulcs megtekintés",
-		"BUTTON_SELECT": "Kiválasztás"
-	},
-	"POPUPS_GENERATE_OPEN_PGP_KEYS": {
-		"TITLE_GENERATE_OPEN_PGP_KEYS": "OpenPGP kulcs generálás",
-		"LABEL_KEY_BIT_LENGTH": "Kulcs hossz",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "Generálás"
-	},
-	"POPUPS_COMPOSE_OPEN_PGP": {
-		"TITLE_COMPOSE_OPEN_PGP": "OpenPGP aláírás\/titkosítás",
+	"OPENPGP": {
+		"POPUP_IMPORT_TITLE": "OpenPGP kulcs importálás",
+		"POPUP_IMPORT_BUTTON": "Importálás",
+		"POPUP_VIEW_TITLE": "OpenPGP kulcs megtekintés",
+		"POPUP_VIEW_BUTTON": "Kiválasztás",
+		"POPUP_GENERATE_TITLE": "OpenPGP kulcs generálás",
+		"POPUP_GENERATE_BUTTON": "Generálás",
+		"LABEL_KEY_TYPE": "Type",
 		"LABEL_SIGN": "Aláírás",
 		"LABEL_ENCRYPT": "Titkosítás",
-		"BUTTON_SIGN": "Aláírás",
-		"BUTTON_ENCRYPT": "Titkosítás",
-		"BUTTON_SIGN_AND_ENCRYPT": "Aláírás és titkosítás"
-	},
-	"POPUPS_MESSAGE_OPEN_PGP": {
-		"TITLE_MESSAGE_OPEN_PGP": "OpenPGP visszafejtés",
-		"LABEL_KEY": "Privát kulcs",
-		"BUTTON_DECRYPT": "Visszafejtés"
+		"BUTTON_DECRYPT": "Visszafejtés",
+		"BUTTON_VERIFY": "Verify",
+		"SIGNED_MESSAGE": "OpenPGP aláírt üzenet",
+		"ENCRYPTED_MESSAGE": "OpenPGP kódolt üzenet",
+		"STORE_IN_GNUPG": "Store on server in GnuPG",
+		"BACKUP_ON_SERVER": "Store (encrypted) on server",
+		"GOOD_SIGNATURE": "Jó aláírás tőle: %USER%",
+		"ERROR": "OpenPGP hiba: %ERROR%"
 	},
 	"POPUPS_FILTER": {
 		"TITLE_CREATE_FILTER": "Szűrő létrehozás?",
@@ -329,10 +337,8 @@
 		"NOTIFICATION_ARCHIVE": "Nem választottál \"Archívum\" rendszermappát az archivált üzenetek tárolásához."
 	},
 	"TITLES": {
-		"LOGIN": "Bejelentkezés",
 		"MAILBOX": "Postaláda",
-		"SETTINGS": "Beállítások",
-		"COMPOSE": "Levélírás"
+		"SETTINGS": "Beállítások"
 	},
 	"UPLOAD": {
 		"ERROR_FILE_IS_TOO_BIG": "A fájl túl nagy",
@@ -344,7 +350,8 @@
 		"ERROR_UNKNOWN": "Ismeretlen fájl feltöltési hiba történt"
 	},
 	"EDITOR": {
-		"TEXT_SWITCHER_PLAINT_TEXT": "HTML <-> TEXT"
+		"TEXT_SWITCHER_PLAIN_TEXT": "HTML <-> TEXT",
+		"TEXT_SWITCHER_SOURCE": "HTML <-> SOURCE"
 	},
 	"SETTINGS_LABELS": {
 		"LABEL_PERSONAL_NAME": "Személyes",
@@ -352,21 +359,20 @@
 		"LABEL_CONTACTS_NAME": "Névjegyek",
 		"LABEL_FOLDERS_NAME": "Mappák",
 		"LABEL_ACCOUNTS_NAME": "Fiókok",
-		"LABEL_IDENTITIES_NAME": "Identitások",
 		"LABEL_FILTERS_NAME": "Szűrők",
-		"LABEL_TEMPLATES_NAME": "Sablonok",
 		"LABEL_SECURITY_NAME": "Biztonság",
 		"LABEL_THEMES_NAME": "Témák"
 	},
 	"SETTINGS_FILTERS": {
 		"LEGEND_FILTERS": "Szűrők",
+		"SIMPLE": "Simple",
+		"ADVANCED": "Advanced",
 		"BUTTON_ADD_SCRIPT": "Add a Script",
 		"SUBNAME_MOVE_TO": "Áthelyezés ide \"%FOLDER%\"",
 		"SUBNAME_FORWARD_TO": "Továbbítás ide: \"%EMAIL%\"",
 		"SUBNAME_REJECT": "Visszautasít",
 		"SUBNAME_VACATION_MESSAGE": "Vakáció üzenet",
-		"SUBNAME_DISCARD": "Elvetés",
-		"LOADING_PROCESS": "Szűrő lista frissítése"
+		"SUBNAME_DISCARD": "Elvetés"
 	},
 	"SETTINGS_SECURITY": {
 		"LEGEND_SECURITY": "Biztonság",
@@ -377,29 +383,34 @@
 	},
 	"SETTINGS_GENERAL": {
 		"LEGEND_GENERAL": "Általános",
-		"LABEL_LANGUAGE": "Nyelv",
-		"LABEL_IDENTITY": "Identitás",
-		"LABEL_LAYOUT": "Elrendezés",
-		"LABEL_LAYOUT_NO_SPLIT": "Felosztás nélkül",
-		"LABEL_LAYOUT_VERTICAL_SPLIT": "Függőleges felosztás",
-		"LABEL_LAYOUT_HORIZONTAL_SPLIT": "Vízszintes felosztás",
-		"LABEL_EDITOR": "Alapértelmezett szövegszerkesztő",
-		"LABEL_EDITOR_HTML": "HTML",
-		"LABEL_EDITOR_PLAIN": "Egyszerű",
-		"LABEL_EDITOR_HTML_FORCED": "HTML (kényszerített)",
-		"LABEL_EDITOR_PLAIN_FORCED": "Egyszerű (kényszerített)",
-		"LABEL_VIEW_OPTIONS": "Nézet beállítások",
-		"LABEL_USE_PREVIEW_PANE": "Előnézeti ablak használata",
-		"LABEL_USE_CHECKBOXES_IN_LIST": "Jelölőnégyzetek megjelenítése a listában",
-		"LABEL_USE_THREADS": "Szálak használata",
-		"LABEL_REPLY_SAME_FOLDER": "Válaszüzenetek elhelyezése az eredeti üzenet mappájában",
-		"LABEL_SHOW_IMAGES": "Mindig jelenítse meg a külső képeket az üzenet törzsében",
-		"LABEL_REMOVE_COLORS": "Remove background and text colors from message body",
-		"LABEL_MESSAGE_PER_PAGE": "Üzenetek egy oldalon",
-		"LABEL_NOTIFICATIONS": "Értesítések",
-		"LABEL_SOUND_NOTIFICATION": "Hangos értesítés",
-		"LABEL_CHROME_NOTIFICATION_DESC": "Új üzenetek értesítő ablakainak megjelenítése",
-		"LABEL_CHROME_NOTIFICATION_DESC_DENIED": "(a böngésző blokkolta)"
+		"LANGUAGE": "Nyelv",
+		"IDENTITY": "Identitás",
+		"LAYOUT": "Elrendezés",
+		"LAYOUT_NO_SPLIT": "Felosztás nélkül",
+		"LAYOUT_VERTICAL_SPLIT": "Függőleges felosztás",
+		"LAYOUT_HORIZONTAL_SPLIT": "Vízszintes felosztás",
+		"EDITOR": "Alapértelmezett szövegszerkesztő",
+		"EDITOR_HTML": "HTML",
+		"EDITOR_PLAIN": "Egyszerű",
+		"VIEW_OPTIONS": "Nézet beállítások",
+		"USE_PREVIEW_PANE": "Előnézeti ablak használata",
+		"HIDE_DELETED_MESSAGES": "A törlésre megjelölt üzenetek elrejtése",
+		"USE_CHECKBOXES_IN_LIST": "Jelölőnégyzetek megjelenítése a listában",
+		"USE_THREADS": "Szálak használata",
+		"REPLY_SAME_FOLDER": "Válaszüzenetek elhelyezése az eredeti üzenet mappájában",
+		"SHOW_IMAGES": "Mindig jelenítse meg a külső képeket az üzenet törzsében",
+		"PREFER_HTML": "Prefer HTML to plain text",
+		"PREFER_HTML_INFO": "Messages sometimes come in both formats. This option controls whether you want the HTML part or the plain text part to be displayed.",
+		"REMOVE_COLORS": "Remove background and text colors from message body",
+		"MESSAGE_PER_PAGE": "Üzenetek egy oldalon",
+		"MARK_MESSAGE_READ_AFTER": "Jelölje meg az üzenetet olvasottként",
+		"MSG_DEFAULT_ACTION": "Default action",
+		"SECONDS": "másodperc után",
+		"NOTIFICATIONS": "Értesítések",
+		"SOUND_NOTIFICATION": "Hangos értesítés",
+		"CHROME_NOTIFICATION_DESC": "Új üzenetek értesítő ablakainak megjelenítése",
+		"CHROME_NOTIFICATION_DESC_DENIED": "(a böngésző blokkolta)",
+		"LIST_INLINE_ATTACHMENTS": "Show inline attachments in list"
 	},
 	"SETTINGS_CONTACTS": {
 		"LABEL_CONTACTS_AUTOSAVE": "Címzettek automatikus hozzáadása a címtárhoz",
@@ -407,7 +418,8 @@
 		"LABEL_CONTACTS_SYNC_ENABLE": "Távoli szinkronizálás engedélyezése",
 		"LABEL_CONTACTS_SYNC_SERVER": "Szerver",
 		"LABEL_CONTACTS_SYNC_AB_URL": "Címtár URL",
-		"LABEL_CONTACTS_SYNC_USER": "Felhasználó"
+		"LABEL_CONTACTS_SYNC_USER": "Felhasználó",
+		"SYNC_READ": "Read only"
 	},
 	"SETTINGS_THEMES": {
 		"LEGEND_THEMES": "Témák",
@@ -436,7 +448,15 @@
 		"HELP_DELETE_FOLDER": "Mappa törlés",
 		"HELP_SHOW_HIDE_FOLDER": "Mappa mutatás\/elrejtés",
 		"HELP_CHECK_FOR_NEW_MESSAGES": "Ellenőrizze\/ne ellenőrizze az új üzeneteket",
-		"HIDE_UNSUBSCRIBED": "Hide unsubscribed folders"
+		"HIDE_UNSUBSCRIBED": "Hide unsubscribed folders",
+		"UNHIDE_KOLAB_FOLDERS": "Unhide Kolab folders",
+		"TYPE_CALENDAR": "Naptár",
+		"TYPE_CONFIGURATION": "Konfiguráció",
+		"TYPE_CONTACTS": "Kapcsolatok",
+		"TYPE_FILES": "Fájlok",
+		"TYPE_JOURNAL": "Folyóirat",
+		"TYPE_NOTES": "Jegyzetek",
+		"TYPE_TASKS": "Feladatok"
 	},
 	"SETTINGS_ACCOUNTS": {
 		"LEGEND_ACCOUNTS": "Fiók lista",
@@ -447,13 +467,13 @@
 		"LOADING_PROCESS": "Fiók lista frissítés",
 		"DEFAULT_IDENTITY_LABEL": "default"
 	},
-	"SETTINGS_OPEN_PGP": {
-		"BUTTON_ADD_OPEN_PGP_KEY": "OpenPGP kulcs importálás",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "OpenPGP kulcs generálás",
+	"SETTINGS_OPENPGP": {
+		"BUTTON_IMPORT_KEY": "Kulcs importálás",
+		"BUTTON_GENERATE_KEY_PAIR": "Kulcs generálás",
 		"TITLE_PRIVATE": "Privát",
 		"TITLE_PUBLIC": "Publikus",
-		"GENERATE_ONLY_HTTPS": "csak HTTPS",
-		"LABEL_ALLOW_DRAFT_AUTOSAVE": "Piszkozat automatikus mentése"
+		"LABEL_ALLOW_DRAFT_AUTOSAVE": "Piszkozat automatikus mentése",
+		"GET_MAILVELOPE": "Get Mailvelope browser add-on."
 	},
 	"SHORTCUTS_HELP": {
 		"LEGEND_SHORTCUTS_HELP": "Billentyű kombináció súgó",
@@ -483,7 +503,6 @@
 		"LABEL_BLOCKQUOTES_TOGGLE": "Idézetek váltása az üzenetben",
 		"LABEL_THREAD_NEXT": "Következő üzenet a szálban",
 		"LABEL_THREAD_PREV": "Előző üzenet a szálban",
-		"LABEL_PRINT": "Nyomtatás",
 		"LABEL_EXIT_FULLSCREEN": "Kilépés a teljes képernyős módból",
 		"LABEL_CLOSE_MESSAGE": "Üzenet bezárás (előnézeti panel nélküli elrendezés)",
 		"LABEL_SWITCH_TO_LIST": "Fókusz váltása vissza az üzenetlistára",
@@ -494,25 +513,14 @@
 		"LABEL_SEND_MESSAGE": "Üzenet küldés",
 		"LABEL_CLOSE_COMPOSE": "Levélírás bezárása"
 	},
-	"PGP_NOTIFICATIONS": {
-		"NO_PUBLIC_KEYS_FOUND": "Nem találtam publikus kulcsokat",
-		"NO_PUBLIC_KEYS_FOUND_FOR": "Nem találtam publikus kulcsokat ehhez az e-mailhez: \"%EMAIL%\"",
-		"NO_PRIVATE_KEY_FOUND": "Nem találtam privát kulcsot",
-		"NO_PRIVATE_KEY_FOUND_FOR": "Nem találtam privát kulcsot ehhez az e-mailhez: \"%EMAIL%\"",
-		"ADD_A_PUBLICK_KEY": "Publikus kulcs hozzáadás",
-		"SELECT_A_PRIVATE_KEY": "Privát kulcs választás",
-		"UNVERIFIRED_SIGNATURE": "Nem ellenőrzött aláírás",
-		"DECRYPTION_ERROR": "OpenPGP visszafejtési hiba",
-		"GOOD_SIGNATURE": "Jó aláírás tőle: %USER%",
-		"PGP_ERROR": "OpenPGP hiba: %ERROR%",
-		"SPECIFY_FROM_EMAIL": "Kérlek add meg a Feladó e-mail címét",
-		"SPECIFY_AT_LEAST_ONE_RECIPIENT": "Legalább egy címzettet meg kell adni"
-	},
 	"NOTIFICATIONS": {
+		"REQUEST_ERROR": "Request failed",
+		"REQUEST_ABORTED": "Request is aborted",
+		"REQUEST_TIMEOUT": "Request timed out",
 		"INVALID_TOKEN": "Érvénytelen kulcs",
 		"AUTH_ERROR": "Érvénytelen hitelesítés",
-		"ACCESS_ERROR": "Érvénytelen hozzáférés",
 		"CONNECTION_ERROR": "Nem lehet kapcsolódni a szerverhez",
+		"DOMAIN_ALREADY_EXISTS": "A domain már létezik",
 		"DOMAIN_NOT_ALLOWED": "A domain nem engedélyezett",
 		"ACCOUNT_NOT_ALLOWED": "A fiók nem engedélyezett",
 		"CONTACTS_SYNC_ERROR": "Hiba lépett fel a névjegyek szinkronizálása közben",
@@ -535,17 +543,11 @@
 		"CANT_DELETE_NON_EMPTY_FOLDER": "Nem üres mappát nem lehet törölni",
 		"CANT_SUBSCRIBE_FOLDER": "Nem lehet feliratkozni mappára",
 		"CANT_UNSUBSCRIBE_FOLDER": "Nem lehet leiratkozni mappáról",
-		"CANT_SAVE_SETTINGS": "Nem lehet menteni a beállításokat",
-		"CANT_SAVE_PLUGIN_SETTINGS": "Nem lehet menteni a beállításokat",
-		"DOMAIN_ALREADY_EXISTS": "A domain már létezik",
-		"CANT_INSTALL_PACKAGE": "Nem sikerült telepíteni a csomagot",
-		"CANT_DELETE_PACKAGE": "Nem sikerült eltávolítani a csomagot",
-		"INVALID_PLUGIN_PACKAGE": "Érvénytelen beépülő csomag",
-		"UNSUPPORTED_PLUGIN_PACKAGE": "Nem támogatott beépülő csomag",
 		"DEMO_SEND_MESSAGE_ERROR": "Biztonsági okokból, ebből a demó fiókból nem lehet külső e-mail címekre üzenetet küldeni.",
 		"DEMO_ACCOUNT_ERROR": "Biztonsági okokból, ebből a fiókból nem lehet elvégezni ezt a műveletet!",
 		"ACCOUNT_ALREADY_EXISTS": "A fiók már létezik",
 		"ACCOUNT_DOES_NOT_EXIST": "A fiók nem létezik",
+		"ACCOUNT_SWITCH_FAILED": "Switch to account \"%EMAIL%\" failed",
 		"MAIL_SERVER_ERROR": "Hiba történt a levelező szerverhez történő hozzáférés közben",
 		"INVALID_INPUT_ARGUMENT": "Érvénytelen input argumentum",
 		"UNKNOWN_ERROR": "Ismeretlen hiba"

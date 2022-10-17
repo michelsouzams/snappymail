@@ -8,20 +8,21 @@ PackageAdminStore.real = ko.observable(true);
 
 PackageAdminStore.loading = ko.observable(false);
 
-//PackageAdminStore.error = ko.observable('');
+PackageAdminStore.error = ko.observable('');
 
 PackageAdminStore.fetch = () => {
 	PackageAdminStore.loading(true);
-	Remote.packagesList((iError, data) => {
+	Remote.request('AdminPackagesList', (iError, data) => {
 		PackageAdminStore.loading(false);
 		if (iError) {
 			PackageAdminStore.real(false);
 		} else {
 			PackageAdminStore.real(!!data.Result.Real);
+			PackageAdminStore.error(data.Result.Error);
 
 			const loading = {};
 			PackageAdminStore.forEach(item => {
-				if (item && item.loading()) {
+				if (item?.loading()) {
 					loading[item.file] = item;
 				}
 			});

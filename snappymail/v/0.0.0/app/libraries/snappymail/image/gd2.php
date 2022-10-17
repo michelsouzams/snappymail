@@ -13,7 +13,7 @@ class GD2 implements \SnappyMail\Image
 		$file,
 		$format,
 		$compression_q = 85,
-		$orientation = 1,
+		$orientation = 0,
 		$type;
 
 	function __destruct()
@@ -27,6 +27,11 @@ class GD2 implements \SnappyMail\Image
 	function __toString()
 	{
 		return $this->getImageBlob();
+	}
+
+	public function valid() : bool
+	{
+		return $this->img && 0 < \imagesx($this->img);
 	}
 
 	public static function createFromString(string &$data)
@@ -51,10 +56,14 @@ class GD2 implements \SnappyMail\Image
 		$gd2->file = 'blob';
 		$gd2->type = (int) $imginfo[2];
 		$gd2->format = $format;
-		if (\is_callable('exif_read_data') && $exif = \exif_read_data('data://'.$imginfo['mime'].';base64,' . \base64_encode($data))) {
-			$gd2->orientation = \max(1, \intval($oMetadata['IFD0.Orientation'] ?? 0));
-		}
+		$gd2->orientation = Exif::getImageOrientation($data, $imginfo);
 		return $gd2;
+	}
+
+	public static function createFromStream($fp)
+	{
+		$data = \stream_get_contents($fp);
+		return static::createFromString($data);
 	}
 
 	public function getOrientation() : int
@@ -244,7 +253,7 @@ class GD2 implements \SnappyMail\Image
 		return true;
 	}
 
-	public function setImageFormat($format)     { $this->format = \strtolower($format); }
+	public function setImageFormat($format) { $this->format = \strtolower($format); }
 
 	public function stripImage() { return $this; }
 

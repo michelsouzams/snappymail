@@ -1,19 +1,16 @@
-(function () {
+(() => {
 
 // Makes a binding like with or if
 function makeWithIfBinding(bindingKey, isWith, isNot) {
     ko.bindingHandlers[bindingKey] = {
         'init': (element, valueAccessor, allBindings, viewModel, bindingContext) => {
-            var didDisplayOnLastUpdate, savedNodes, contextOptions = {}, completeOnRender, needAsyncContext, renderOnEveryChange;
+            var savedNodes, contextOptions = {}, needAsyncContext;
 
             if (isWith) {
-                var as = allBindings.get('as'), noChildContext = allBindings.get('noChildContext');
-                renderOnEveryChange = !(as && noChildContext);
-                contextOptions = { 'as': as, 'noChildContext': noChildContext, 'exportDependencies': renderOnEveryChange };
+                contextOptions = { 'as': allBindings.get('as'), 'exportDependencies': true };
             }
 
-            completeOnRender = allBindings.get("completeOn") == "render";
-            needAsyncContext = completeOnRender || allBindings['has'](ko.bindingEvent.descendantsComplete);
+            needAsyncContext = allBindings['has'](ko.bindingEvent.descendantsComplete);
 
             ko.computed(() => {
                 var value = ko.utils.unwrapObservable(valueAccessor()),
@@ -21,26 +18,19 @@ function makeWithIfBinding(bindingKey, isWith, isNot) {
                     isInitial = !savedNodes,
                     childContext;
 
-                if (!renderOnEveryChange && shouldDisplay === didDisplayOnLastUpdate) {
-                    return;
-                }
-
                 if (needAsyncContext) {
                     bindingContext = ko.bindingEvent.startPossiblyAsyncContentBinding(element, bindingContext);
                 }
 
                 if (shouldDisplay) {
-                    if (!isWith || renderOnEveryChange) {
-                        contextOptions['dataDependency'] = ko.dependencyDetection.computed();
-                    }
+                    contextOptions['dataDependency'] = ko.dependencyDetection.computed();
 
-                    if (isWith) {
-                        childContext = bindingContext['createChildContext'](typeof value == "function" ? value : valueAccessor, contextOptions);
-                    } else if (ko.dependencyDetection.getDependenciesCount()) {
-                        childContext = bindingContext['extend'](null, contextOptions);
-                    } else {
-                        childContext = bindingContext;
-                    }
+                    childContext = isWith
+                        ? bindingContext['createChildContext'](typeof value == "function" ? value : valueAccessor, contextOptions)
+                        : (ko.dependencyDetection.getDependenciesCount()
+                            ? bindingContext['extend'](null, contextOptions)
+                            : bindingContext
+                        );
                 }
 
                 // Save a copy of the inner nodes on the initial update, but only if we have dependencies.
@@ -49,20 +39,14 @@ function makeWithIfBinding(bindingKey, isWith, isNot) {
                 }
 
                 if (shouldDisplay) {
-                    if (!isInitial) {
-                        ko.virtualElements.setDomNodeChildren(element, ko.utils.cloneNodes(savedNodes));
-                    }
+                    isInitial || ko.virtualElements.setDomNodeChildren(element, ko.utils.cloneNodes(savedNodes));
 
                     ko.applyBindingsToDescendants(childContext, element);
                 } else {
                     ko.virtualElements.emptyNode(element);
 
-                    if (!completeOnRender) {
-                        ko.bindingEvent.notify(element, ko.bindingEvent.childrenComplete);
-                    }
+                    ko.bindingEvent.notify(element, ko.bindingEvent.childrenComplete);
                 }
-
-                didDisplayOnLastUpdate = shouldDisplay;
 
             }, { disposeWhenNodeIsRemoved: element });
 

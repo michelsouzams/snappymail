@@ -31,52 +31,44 @@ class TempFile
 	/**
 	 * @var resource
 	 */
-	private $rSream;
-
-	public static function Reg()
-	{
-		if (!in_array(self::STREAM_NAME, stream_get_wrappers()))
-		{
-			stream_wrapper_register(self::STREAM_NAME, '\MailSo\Base\StreamWrappers\TempFile');
-		}
-	}
+	private $rStream;
 
 	/**
 	 * @return resource|bool
 	 */
 	public static function CreateStream(string $sHash, string &$sFileName = '')
 	{
-		self::Reg();
+		return \fopen(self::STREAM_NAME.'://'.$sHash, 'r+b');
+	}
 
-		$sFileName = self::STREAM_NAME.'://'.$sHash;
-		return fopen($sFileName, 'r+b');
+	public function stream_cast(int $cast_as) /*: resource*/
+	{
+		return $this->rStream;
 	}
 
 	public function stream_open(string $sPath) : bool
 	{
 		$bResult = false;
-		$aPath = parse_url($sPath);
+		$aPath = \parse_url($sPath);
 
 		if (isset($aPath['host']) && isset($aPath['scheme']) &&
-			0 < strlen($aPath['host']) && 0 < strlen($aPath['scheme']) &&
+			\strlen($aPath['host']) && \strlen($aPath['scheme']) &&
 			self::STREAM_NAME === $aPath['scheme'])
 		{
 			$sHashName = $aPath['host'];
 			if (isset(self::$aStreams[$sHashName]) &&
-				is_resource(self::$aStreams[$sHashName]))
+				\is_resource(self::$aStreams[$sHashName]))
 			{
-				$this->rSream = self::$aStreams[$sHashName];
-				\fseek($this->rSream, 0);
+				$this->rStream = self::$aStreams[$sHashName];
+				\fseek($this->rStream, 0);
 				$bResult = true;
 			}
 			else
 			{
-				$this->rSream = fopen('php://memory', 'r+b');
-				self::$aStreams[$sHashName] = $this->rSream;
+				$this->rStream = \fopen('php://temp', 'r+b');
+				self::$aStreams[$sHashName] = $this->rStream;
 
 				$bResult = true;
-
-				\MailSo\Base\Loader::IncStatistic('CreateStream/TempFile');
 			}
 		}
 
@@ -90,36 +82,38 @@ class TempFile
 
 	public function stream_flush() : bool
 	{
-		return fflush($this->rSream);
+		return \fflush($this->rStream);
 	}
 
 	public function stream_read(int $iLen) : string
 	{
-		return fread($this->rSream, $iLen);
+		return \fread($this->rStream, $iLen);
 	}
 
 	public function stream_write(string $sInputString) : int
 	{
-		return fwrite($this->rSream, $sInputString);
+		return \fwrite($this->rStream, $sInputString);
 	}
 
 	public function stream_tell() : int
 	{
-		return ftell($this->rSream);
+		return \ftell($this->rStream);
 	}
 
 	public function stream_eof() : bool
 	{
-		return feof($this->rSream);
+		return \feof($this->rStream);
 	}
 
 	public function stream_stat() : array
 	{
-		return fstat($this->rSream);
+		return \fstat($this->rStream);
 	}
 
 	public function stream_seek(int $iOffset, int $iWhence = SEEK_SET) : int
 	{
-		return fseek($this->rSream, $iOffset, $iWhence);
+		return \fseek($this->rStream, $iOffset, $iWhence);
 	}
 }
+
+\stream_wrapper_register(TempFile::STREAM_NAME, '\\MailSo\\Base\\StreamWrappers\\TempFile');

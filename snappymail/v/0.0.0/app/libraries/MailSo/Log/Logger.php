@@ -15,15 +15,15 @@ namespace MailSo\Log;
  * @category MailSo
  * @package Log
  */
-class Logger extends \MailSo\Base\Collection
+class Logger extends \SplFixedArray
 {
 	private $bUsed = false;
 
-	private $aForbiddenTypes = [];
+	private $iLevel = \LOG_WARNING;
 
 	private $aSecretWords = [];
 
-	private $bShowSecter = false;
+	private $bShowSecrets = false;
 
 	function __construct(bool $bRegPhpErrorHandler = true)
 	{
@@ -31,40 +31,10 @@ class Logger extends \MailSo\Base\Collection
 
 		if ($bRegPhpErrorHandler)
 		{
-			\set_error_handler(array(&$this, '__phpErrorHandler'));
+			\set_error_handler(array($this, '__phpErrorHandler'));
 		}
 
-		\register_shutdown_function(array(&$this, '__loggerShutDown'));
-	}
-
-	/**
-	 * @staticvar \MailSo\Log\Logger $oInstance;
-	 */
-	public static function SingletonInstance() : self
-	{
-		static $oInstance = null;
-		if (null === $oInstance)
-		{
-			$oInstance = new self;
-		}
-
-		return $oInstance;
-	}
-
-	public static function IsSystemEnabled() : bool
-	{
-		return !!(\MailSo\Config::$SystemLogger instanceof Logger);
-	}
-
-	/**
-	 * @param mixed $mData
-	 */
-	public static function SystemLog($mData, int $iType = \MailSo\Log\Enumerations\Type::INFO)
-	{
-		if (\MailSo\Config::$SystemLogger instanceof Logger)
-		{
-			\MailSo\Config::$SystemLogger->WriteMixed($mData, $iType);
-		}
+		\register_shutdown_function(array($this, '__loggerShutDown'));
 	}
 
 	/**
@@ -75,71 +45,95 @@ class Logger extends \MailSo\Base\Collection
 		static $sCache = null;
 		if (null === $sCache)
 		{
-			$sCache = \substr(\MailSo\Base\Utils::Md5Rand(), -8);
+			$sCache = \substr(\MailSo\Base\Utils::Sha1Rand(), -8);
 		}
 
 		return $sCache;
 	}
 
-	public function Ping() : bool
+	public function append($oDriver) : void
 	{
-		return true;
+		if ($oDriver) {
+			$this->setSize(1);
+			$this[0] = $oDriver;
+		}
 	}
 
 	public function IsEnabled() : bool
 	{
-		return 0 < $this->Count();
+		return 0 < $this->count();
 	}
 
 	public function AddSecret(string $sWord) : void
 	{
-		if (0 < \strlen(\trim($sWord)))
+		if (\strlen(\trim($sWord)))
 		{
 			$this->aSecretWords[] = $sWord;
 			$this->aSecretWords = \array_unique($this->aSecretWords);
 		}
 	}
 
-	public function SetShowSecter(bool $bShow) : self
+	public function SetShowSecrets(bool $bShow) : self
 	{
-		$this->bShowSecter = $bShow;
+		$this->bShowSecrets = $bShow;
 		return $this;
 	}
 
 	public function IsShowSecter() : bool
 	{
-		return $this->bShowSecter;
+		return $this->bShowSecrets;
 	}
 
-	public function AddForbiddenType(int $iType) : self
+	public function SetLevel(int $iLevel) : self
 	{
-		$this->aForbiddenTypes[$iType] = true;
-
+		$this->iLevel = $iLevel;
 		return $this;
 	}
 
-	public function RemoveForbiddenType(int $iType) : self
-	{
-		$this->aForbiddenTypes[$iType] = false;
-		return $this;
-	}
+	const PHP_TYPES = array(
+		\E_ERROR => \LOG_ERR,
+		\E_WARNING => \LOG_WARNING,
+		\E_PARSE => \LOG_CRIT,
+		\E_NOTICE => \LOG_NOTICE,
+		\E_CORE_ERROR => \LOG_ERR,
+		\E_CORE_WARNING => \LOG_WARNING,
+		\E_COMPILE_ERROR => \LOG_ERR,
+		\E_COMPILE_WARNING => \LOG_WARNING,
+		\E_USER_ERROR => \LOG_ERR,
+		\E_USER_WARNING => \LOG_WARNING,
+		\E_USER_NOTICE => \LOG_NOTICE,
+		\E_STRICT => \LOG_CRIT,
+		\E_RECOVERABLE_ERROR => \LOG_ERR,
+		\E_DEPRECATED => \LOG_INFO,
+		\E_USER_DEPRECATED => \LOG_INFO
+	);
+
+	const PHP_TYPE_POSTFIX = array(
+		\E_ERROR => '',
+		\E_WARNING => '',
+		\E_PARSE => '-PARSE',
+		\E_NOTICE => '',
+		\E_CORE_ERROR => '-CORE',
+		\E_CORE_WARNING => '-CORE',
+		\E_COMPILE_ERROR => '-COMPILE',
+		\E_COMPILE_WARNING => '-COMPILE',
+		\E_USER_ERROR => '-USER',
+		\E_USER_WARNING => '-USER',
+		\E_USER_NOTICE => '-USER',
+		\E_STRICT => '-STRICT',
+		\E_RECOVERABLE_ERROR => '-RECOVERABLE',
+		\E_DEPRECATED => '-DEPRECATED',
+		\E_USER_DEPRECATED => '-USER_DEPRECATED'
+	);
 
 	public function __phpErrorHandler(int $iErrNo, string $sErrStr, string $sErrFile, int $iErrLine) : bool
 	{
 		if (\error_reporting() & $iErrNo) {
-			$iType = \MailSo\Log\Enumerations\Type::NOTICE_PHP;
-			switch ($iErrNo)
-			{
-				 case E_USER_ERROR:
-					 $iType = \MailSo\Log\Enumerations\Type::ERROR_PHP;
-					 break;
-				 case E_USER_WARNING:
-					 $iType = \MailSo\Log\Enumerations\Type::WARNING_PHP;
-					 break;
-			}
-
-			$this->Write($sErrFile.' [line:'.$iErrLine.', code:'.$iErrNo.']', $iType, 'PHP');
-			$this->Write('Error: '.$sErrStr, $iType, 'PHP');
+			$this->Write(
+				"{$sErrStr} {$sErrFile} [line:{$iErrLine}, code:{$iErrNo}]",
+				static::PHP_TYPES[$iErrNo],
+				'PHP' . static::PHP_TYPE_POSTFIX[$iErrNo]
+			);
 		}
 		/* forward to standard PHP error handler */
 		return false;
@@ -147,51 +141,27 @@ class Logger extends \MailSo\Base\Collection
 
 	public function __loggerShutDown() : void
 	{
-		if ($this->bUsed && $aStatistic = \MailSo\Base\Loader::Statistic())
-		{
-			if (isset($aStatistic['php']['memory_get_peak_usage']))
-			{
-				$this->Write('Memory peak usage: '.$aStatistic['php']['memory_get_peak_usage'],
-					\MailSo\Log\Enumerations\Type::MEMORY);
-			}
-
-			if (isset($aStatistic['time']))
-			{
-				$this->Write('Time delta: '.$aStatistic['time'], \MailSo\Log\Enumerations\Type::TIME_DELTA);
-			}
+		if ($this->bUsed) {
+			$this->Write('Memory peak usage: '.\MailSo\Base\Utils::FormatFileSize(\memory_get_peak_usage(true), 2));
+			$this->Write('Time delta: '.(\microtime(true) - $_SERVER['REQUEST_TIME_FLOAT']));
 		}
 	}
 
-	public function WriteEmptyLine() : bool
-	{
-		$iResult = 1;
-
-		foreach ($this as /* @var $oLogger \MailSo\Log\Driver */ $oLogger)
-		{
-			$iResult = $oLogger->WriteEmptyLine();
-		}
-
-		return (bool) $iResult;
-	}
-
-	public function Write(string $sDesc, int $iType = \MailSo\Log\Enumerations\Type::INFO,
+	public function Write(string $sDesc, int $iType = \LOG_INFO,
 		string $sName = '', bool $bSearchSecretWords = true, bool $bDiplayCrLf = false) : bool
 	{
-		if (isset($this->aForbiddenTypes[$iType]) && true === $this->aForbiddenTypes[$iType])
-		{
+		if ($this->iLevel < $iType) {
 			return true;
 		}
 
 		$this->bUsed = true;
 
-		$oLogger = null;
-		$aLoggers = array();
-		$iResult = 1;
-
-		if ($bSearchSecretWords && !$this->bShowSecter && 0 < \count($this->aSecretWords))
+		if ($bSearchSecretWords && !$this->bShowSecrets && \count($this->aSecretWords))
 		{
 			$sDesc = \str_replace($this->aSecretWords, '*******', $sDesc);
 		}
+
+		$iResult = 1;
 
 		foreach ($this as /* @var $oLogger \MailSo\Log\Driver */ $oLogger)
 		{
@@ -204,13 +174,13 @@ class Logger extends \MailSo\Base\Collection
 	/**
 	 * @param mixed $oValue
 	 */
-	public function WriteDump($oValue, int $iType = \MailSo\Log\Enumerations\Type::INFO, string $sName = '',
+	public function WriteDump($oValue, int $iType = \LOG_INFO, string $sName = '',
 		bool $bSearchSecretWords = false, bool $bDiplayCrLf = false) : bool
 	{
 		return $this->Write(\print_r($oValue, true), $iType, $sName, $bSearchSecretWords, $bDiplayCrLf);
 	}
 
-	public function WriteException(\Throwable $oException, int $iType = \MailSo\Log\Enumerations\Type::NOTICE, string $sName = '',
+	public function WriteException(\Throwable $oException, int $iType = \LOG_NOTICE, string $sName = '',
 		bool $bSearchSecretWords = true, bool $bDiplayCrLf = false) : bool
 	{
 		if ($oException instanceof \Throwable)
@@ -228,7 +198,7 @@ class Logger extends \MailSo\Base\Collection
 		return false;
 	}
 
-	public function WriteExceptionShort(\Throwable $oException, int $iType = \MailSo\Log\Enumerations\Type::NOTICE, string $sName = '',
+	public function WriteExceptionShort(\Throwable $oException, int $iType = \LOG_NOTICE, string $sName = '',
 		bool $bSearchSecretWords = true, bool $bDiplayCrLf = false) : bool
 	{
 		if ($oException instanceof \Throwable)
@@ -252,24 +222,16 @@ class Logger extends \MailSo\Base\Collection
 	public function WriteMixed($mData, int $iType = null, string $sName = '',
 		bool $bSearchSecretWords = true, bool $bDiplayCrLf = false) : bool
 	{
-		$iType = null === $iType ? \MailSo\Log\Enumerations\Type::INFO : $iType;
+		$iType = null === $iType ? \LOG_INFO : $iType;
 		if (\is_array($mData) || \is_object($mData))
 		{
 			if ($mData instanceof \Throwable)
 			{
-				$iType = null === $iType ? \MailSo\Log\Enumerations\Type::NOTICE : $iType;
+				$iType = null === $iType ? \LOG_NOTICE : $iType;
 				return $this->WriteException($mData, $iType, $sName, $bSearchSecretWords, $bDiplayCrLf);
 			}
-			else
-			{
-				return  $this->WriteDump($mData, $iType, $sName, $bSearchSecretWords, $bDiplayCrLf);
-			}
+			return  $this->WriteDump($mData, $iType, $sName, $bSearchSecretWords, $bDiplayCrLf);
 		}
-		else
-		{
-			return $this->Write($mData, $iType, $sName, $bSearchSecretWords, $bDiplayCrLf);
-		}
-
-		return false;
+		return $this->Write($mData, $iType, $sName, $bSearchSecretWords, $bDiplayCrLf);
 	}
 }

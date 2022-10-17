@@ -2,17 +2,33 @@
 
 namespace RainLoop\Providers\AddressBook;
 
-use \SnappyMail\DAV\Client as DAVClient;
+use SnappyMail\DAV\Client as DAVClient;
 
 trait CardDAV
 {
+	private $aDAVConfig = ['Mode' => 0];
+
+	public function setDAVClientConfig(?array $aConfig)
+	{
+		if (isset($aConfig['User'], $aConfig['Password'], $aConfig['Url']) && !empty($aConfig['Mode'])) {
+			$this->aDAVConfig = $aConfig;
+		} else {
+			$this->aDAVConfig = ['Mode' => 0];
+		}
+	}
+
+	protected function isDAVReadWrite()
+	{
+		return 1 == $this->aDAVConfig['Mode'];
+	}
+
 	protected function prepareDavSyncData(DAVClient $oClient, string $sPath)
 	{
 		$mResult = false;
 		$aResponse = null;
 		try
 		{
-			$this->oLogger->Write('PROPFIND '.$sPath, \MailSo\Log\Enumerations\Type::INFO, 'DAV');
+			$this->oLogger->Write('PROPFIND '.$sPath, \LOG_INFO, 'DAV');
 
 			$aResponse = $oClient->propFind($sPath, array(
 				'{DAV:}getlastmodified',
@@ -84,11 +100,11 @@ trait CardDAV
 		\MailSo\Base\Utils::ResetTimeLimit();
 
 		$this->oLogger->Write($sCmd.' '.$sUrl.(('PUT' === $sCmd || 'POST' === $sCmd) && null !== $mData ? ' ('.\strlen($mData).')' : ''),
-			\MailSo\Log\Enumerations\Type::INFO, 'DAV');
+			\LOG_INFO, 'DAV');
 
 //		if ('PUT' === $sCmd || 'POST' === $sCmd)
 //		{
-//			$this->oLogger->Write($mData, \MailSo\Log\Enumerations\Type::INFO, 'DAV');
+//			$this->oLogger->Write($mData, \LOG_INFO, 'DAV');
 //		}
 
 		try
@@ -106,7 +122,7 @@ trait CardDAV
 
 //			if ('GET' === $sCmd)
 //			{
-//				$this->oLogger->WriteDump($aResponse, \MailSo\Log\Enumerations\Type::INFO, 'DAV');
+//				$this->oLogger->WriteDump($aResponse, \LOG_INFO, 'DAV');
 //			}
 		}
 		catch (\Throwable $oException)
@@ -123,7 +139,7 @@ trait CardDAV
 
 		try
 		{
-			$this->oLogger->Write('PROPFIND '.$sPath, \MailSo\Log\Enumerations\Type::INFO, 'DAV');
+			$this->oLogger->Write('PROPFIND '.$sPath, \LOG_INFO, 'DAV');
 
 			$aResponse = $oClient->propFind($sPath, array(
 				'{DAV:}current-user-principal',
@@ -320,7 +336,7 @@ trait CardDAV
 			return false;
 		}
 
-		$this->oLogger->Write('PROPFIND '.$sPath, \MailSo\Log\Enumerations\Type::INFO, 'DAV');
+		$this->oLogger->Write('PROPFIND '.$sPath, \LOG_INFO, 'DAV');
 
 		$aResponse = null;
 		try
@@ -396,20 +412,28 @@ trait CardDAV
 
 		$oClient->__UrlPath__ = $aUrl['path'];
 
-		$this->oLogger->Write('DavClient: User: '.$aSettings['userName'].', Url: '.$sUrl, \MailSo\Log\Enumerations\Type::INFO, 'DAV');
+		$this->oLogger->Write('DavClient: User: '.$aSettings['userName'].', Url: '.$sUrl, \LOG_INFO, 'DAV');
 
 		return $oClient;
 	}
 
-	protected function getDavClient(string $sUrl, string $sUser, string $sPassword, string $sProxy = '') : ?DAVClient
+	protected function getDavClient() : ?DAVClient
 	{
+		if (!$this->aDAVConfig['Mode']) {
+			return null;
+		}
+		$sUrl = $this->aDAVConfig['Url'];
+		$sUser = $this->aDAVConfig['User'];
+		$sPassword = $this->aDAVConfig['Password'];
+		$sProxy = '';
+
 		$aMatch = array();
 		$sUserAddressBookNameName = '';
 
 		if (\preg_match('/\|(.+)$/', $sUrl, $aMatch) && !empty($aMatch[1]))
 		{
 			$sUserAddressBookNameName = \trim($aMatch[1]);
-			$sUserAddressBookNameName = \MailSo\Base\Utils::StrToLowerIfAscii($sUserAddressBookNameName);
+			$sUserAddressBookNameName = \mb_strtolower($sUserAddressBookNameName);
 
 			$sUrl = \preg_replace('/\|(.+)$/', '', $sUrl);
 		}
@@ -434,7 +458,7 @@ trait CardDAV
 					{
 						foreach ($aPaths as $sKey => $sValue)
 						{
-							$sValue = \MailSo\Base\Utils::StrToLowerIfAscii(\trim($sValue));
+							$sValue = \mb_strtolower(\trim($sValue));
 							if ($sValue === $sUserAddressBookNameName)
 							{
 								$sNewPath = $sKey;
@@ -447,7 +471,7 @@ trait CardDAV
 					{
 						foreach ($aPaths as $sKey => $sValue)
 						{
-							$sValue = \MailSo\Base\Utils::StrToLowerIfAscii($sValue);
+							$sValue = \mb_strtolower($sValue);
 							if (\in_array($sValue, array('contacts', 'default', 'addressbook', 'address book')))
 							{
 								$sNewPath = $sKey;

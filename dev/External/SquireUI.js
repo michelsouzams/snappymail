@@ -9,13 +9,16 @@ const
 
 	i18n = (str, def) => rl.i18n(str) || def,
 
-	ctrlKey = shortcuts.getMetaKey().replace('meta','⌘') + ' + ',
+	ctrlKey = shortcuts.getMetaKey() + ' + ',
 
-	tpl = doc.createElement('template'),
-	clr = doc.createElement('input'),
+	createElement = name => doc.createElement(name),
+
+	tpl = createElement('template'),
+	clr = createElement('input'),
 
 	trimLines = html => html.trim().replace(/^(<div>\s*<br\s*\/?>\s*<\/div>)+/, '').trim(),
-	clearHtmlLine = html => rl.Utils.htmlToPlain(html).trim(),
+	htmlToPlain = html => rl.Utils.htmlToPlain(html).trim(),
+	plainToHtml = text => rl.Utils.plainToHtml(text),
 
 	getFragmentOfChildren = parent => {
 		let frag = doc.createDocumentFragment();
@@ -33,13 +36,12 @@ const
 		addLinks: true // allow_smart_html_links
 */
 		sanitizeToDOMFragment: (html, isPaste/*, squire*/) => {
-			tpl.innerHTML = html
+			tpl.innerHTML = (html||'')
 				.replace(/<\/?(BODY|HTML)[^>]*>/gi,'')
 				.replace(/<!--[^>]+-->/g,'')
 				.replace(/<span[^>]*>\s*<\/span>/gi,'')
 				.trim();
 			tpl.querySelectorAll('a:empty,span:empty').forEach(el => el.remove());
-			tpl.querySelectorAll('[data-x-div-type]').forEach(el => el.replaceWith(getFragmentOfChildren(el)));
 			if (isPaste) {
 				tpl.querySelectorAll(removeElements).forEach(el => el.remove());
 				tpl.querySelectorAll('*').forEach(el => {
@@ -57,66 +59,6 @@ const
 			}
 			return tpl.content;
 		}
-	},
-
-	rl_signature_replacer = (editor, text, signature, isHtml, insertBefore) => {
-		let
-			prevSignature = editor.__previous_signature,
-			skipInsert = false,
-			isEmptyText = false;
-
-		isEmptyText = !text.trim();
-		if (!isEmptyText && isHtml) {
-			isEmptyText = !clearHtmlLine(text);
-		}
-
-		if (prevSignature && !isEmptyText) {
-			if (isHtml && !prevSignature.isHtml) {
-				prevSignature = {
-					body: rl.Utils.plainToHtml(prevSignature.body),
-					isHtml: true
-				};
-			} else if (!isHtml && prevSignature.isHtml) {
-				prevSignature = {
-					body: rl.Utils.htmlToPlain(prevSignature.body),
-					isHtml: true
-				};
-			}
-
-			if (isHtml) {
-				var clearSig = clearHtmlLine(prevSignature.body);
-				text = text.replace(/<signature>([\s\S]*)<\/signature>/igm, all => {
-					var c = clearSig === clearHtmlLine(all);
-					if (!c) {
-						skipInsert = true;
-					}
-					return c ? '' : all;
-				});
-			} else {
-				var textLen = text.length;
-				text = text
-					.replace(prevSignature.body, '')
-					.replace(prevSignature.body, '');
-				skipInsert = textLen === text.length;
-			}
-		}
-
-		if (!skipInsert) {
-			signature = (isHtml ? '<br/><br/><signature>' : "\n\n") + signature + (isHtml ? '</signature>' : '');
-
-			text = insertBefore ? signature + text : text + signature;
-
-			if (10 < signature.length) {
-				prevSignature = {
-					body: signature,
-					isHtml: isHtml
-				};
-			}
-		}
-
-		editor.__previous_signature = prevSignature;
-
-		return text;
 	};
 
 clr.type = "color";
@@ -127,18 +69,23 @@ class SquireUI
 {
 	constructor(container) {
 		const
-			doClr = fn => () => {
+			doClr = name => () => {
 				clr.value = '';
-				clr.onchange = () => squire[fn](clr.value);
+				clr.onchange = () => squire.setStyle({[name]:clr.value});
 				clr.click();
 			},
 
 			actions = {
 				mode: {
 					plain: {
-						html: '〈〉',
-						cmd: () => this.setMode('plain' == this.mode ? 'wysiwyg' : 'plain'),
-						hint: i18n('EDITOR/TEXT_SWITCHER_PLAINT_TEXT', 'Plain')
+//						html: '〈〉',
+//						cmd: () => this.setMode('plain' == this.mode ? 'wysiwyg' : 'plain'),
+						select: [
+							[i18n('SETTINGS_GENERAL/EDITOR_HTML'),'wysiwyg'],
+							[i18n('SETTINGS_GENERAL/EDITOR_PLAIN'),'plain']
+						],
+						cmd: s => this.setMode('plain' == s.value ? 'plain' : 'wysiwyg'),
+						hint: i18n('EDITOR/TEXT_SWITCHER_PLAIN_TEXT', 'Plain')
 					}
 				},
 				font: {
@@ -171,29 +118,15 @@ class SquireUI
 				colors: {
 					textColor: {
 						html: 'A<sub>▾</sub>',
-						cmd: doClr('setTextColor'),
+						cmd: doClr('color'),
 						hint: 'Text color'
 					},
 					backgroundColor: {
 						html: '🎨', /* ▧ */
-						cmd: doClr('setBackgroundColor'),
+						cmd: doClr('backgroundColor'),
 						hint: 'Background color'
 					},
 				},
-/*
-				bidi: {
-					bdoLtr: {
-						html: '&lrm;𝐁',
-						cmd: () => this.doAction('bold','B'),
-						hint: 'Bold'
-					},
-					bdoRtl: {
-						html: '&rlm;𝐁',
-						cmd: () => this.doAction('bold','B'),
-						hint: 'Bold'
-					}
-				},
-*/
 				inline: {
 					bold: {
 						html: 'B',
@@ -248,8 +181,8 @@ class SquireUI
 					quote: {
 						html: '"',
 						cmd: () => {
-							let parent = this.getParentNodeName('UL,OL');
-							(parent && 'BLOCKQUOTE' == parent) ? squire.decreaseQuoteLevel() : squire.increaseQuoteLevel();
+							let parent = squire.getSelectionClosest('UL,OL,BLOCKQUOTE')?.nodeName;
+							('BLOCKQUOTE' == parent) ? squire.decreaseQuoteLevel() : squire.increaseQuoteLevel();
 						},
 						hint: 'Blockquote'
 					},
@@ -270,11 +203,10 @@ class SquireUI
 					link: {
 						html: '🔗',
 						cmd: () => {
-							if ('A' === this.getParentNodeName()) {
-								squire.removeLink();
-							} else {
-								let url = prompt("Link","https://");
-								url != null && url.length && squire.makeLink(url);
+							let node = squire.getSelectionClosest('A'),
+								url = prompt("Link", node?.href || "https://");
+							if (url != null) {
+								url.length ? squire.makeLink(url) : (node && squire.removeLink());
 							}
 						},
 						hint: 'Link'
@@ -282,12 +214,9 @@ class SquireUI
 					imageUrl: {
 						html: '🖼️',
 						cmd: () => {
-							if ('IMG' === this.getParentNodeName()) {
-//								squire.removeLink();
-							} else {
-								let src = prompt("Image","https://");
-								src != null && src.length && squire.insertImage(src);
-							}
+							let node = squire.getSelectionClosest('IMG'),
+								src = prompt("Image", node?.src || "https://");
+							src.length ? squire.insertImage(src) : (node && squire.detach(node));
 						},
 						hint: 'Image URL'
 					},
@@ -314,14 +243,19 @@ class SquireUI
 						cmd: () => squire.redo(),
 						key: 'Y',
 						hint: 'Redo'
+					},
+					source: {
+						html: '👁',
+						cmd: () => this.setMode('source' == this.mode ? 'wysiwyg' : 'source'),
+						hint: i18n('EDITOR/TEXT_SWITCHER_SOURCE', 'Source')
 					}
 				}
 			},
 
-			plain = doc.createElement('textarea'),
-			wysiwyg = doc.createElement('div'),
-			toolbar = doc.createElement('div'),
-			browseImage = doc.createElement('input'),
+			plain = createElement('textarea'),
+			wysiwyg = createElement('div'),
+			toolbar = createElement('div'),
+			browseImage = createElement('input'),
 			squire = new Squire(wysiwyg, SquireDefaultConfig);
 
 		browseImage.type = 'file';
@@ -336,7 +270,7 @@ class SquireUI
 		}
 
 		plain.className = 'squire-plain';
-		wysiwyg.className = 'squire-wysiwyg cke_editable';
+		wysiwyg.className = 'squire-wysiwyg';
 		this.mode = ''; // 'plain' | 'wysiwyg'
 		this.__plain = {
 			getRawData: () => this.plain.value,
@@ -349,35 +283,35 @@ class SquireUI
 		this.wysiwyg = wysiwyg;
 
 		toolbar.className = 'squire-toolbar btn-toolbar';
-		let touchTap;
-		for (let group in actions) {
+		let group, action/*, touchTap*/;
+		for (group in actions) {
+/*
 			if ('bidi' == group && !rl.settings.app('allowHtmlEditorBitiButtons')) {
 				continue;
 			}
-			let toolgroup = doc.createElement('div');
+*/
+			let toolgroup = createElement('div');
 			toolgroup.className = 'btn-group';
 			toolgroup.id = 'squire-toolgroup-'+group;
-			for (let action in actions[group]) {
-				if ('source' == action && !rl.settings.app('allowHtmlEditorSourceButton')) {
-					continue;
-				}
+			for (action in actions[group]) {
 				let cfg = actions[group][action], input, ev = 'click';
 				if (cfg.input) {
-					input = doc.createElement('input');
+					input = createElement('input');
 					input.type = cfg.input;
 					ev = 'change';
 				} else if (cfg.select) {
-					input = doc.createElement('select');
+					input = createElement('select');
 					input.className = 'btn';
 					if (Array.isArray(cfg.select)) {
 						cfg.select.forEach(value => {
-							var option = new Option(value, value);
-							option.style[action] = value;
+							value = Array.isArray(value) ? value : [value, value];
+							var option = new Option(value[0], value[1]);
+							option.style[action] = value[1];
 							input.append(option);
 						});
 					} else {
 						Object.entries(cfg.select).forEach(([label, options]) => {
-							let group = doc.createElement('optgroup');
+							let group = createElement('optgroup');
 							group.label = label;
 							Object.entries(options).forEach(([text, value]) => {
 								var option = new Option(text, value);
@@ -389,21 +323,23 @@ class SquireUI
 					}
 					ev = 'input';
 				} else {
-					input = doc.createElement('button');
+					input = createElement('button');
 					input.type = 'button';
 					input.className = 'btn';
 					input.innerHTML = cfg.html;
 					input.action_cmd = cfg.cmd;
-					input.addEventListener('touchstart', () => touchTap = input, {passive:true});
-					input.addEventListener('touchmove', () => touchTap = null, {passive:true});
-					input.addEventListener('touchcancel', () => touchTap = null);
-					input.addEventListener('touchend', e => {
+/*
+					input.addEventListener('pointerdown', () => touchTap = input, {passive:true});
+					input.addEventListener('pointermove', () => touchTap = null, {passive:true});
+					input.addEventListener('pointercancel', () => touchTap = null);
+					input.addEventListener('pointerup', e => {
 						if (touchTap === input) {
 							e.preventDefault();
 							cfg.cmd(input);
 						}
 						touchTap = null;
 					});
+*/
 				}
 				input.addEventListener(ev, () => cfg.cmd(input));
 				if (cfg.hint) {
@@ -419,6 +355,8 @@ class SquireUI
 			toolgroup.children.length && toolbar.append(toolgroup);
 		}
 
+		this.modeSelect = actions.mode.plain.input;
+
 		let changes = actions.changes;
 		changes.undo.input.disabled = changes.redo.input.disabled = true;
 		squire.addEventListener('undoStateChange', state => {
@@ -426,8 +364,8 @@ class SquireUI
 			changes.redo.input.disabled = !state.canRedo;
 		});
 
-		squire.addEventListener('focus', () => shortcuts.off());
-		squire.addEventListener('blur', () => shortcuts.on());
+//		squire.addEventListener('focus', () => shortcuts.off());
+//		squire.addEventListener('blur', () => shortcuts.on());
 
 		container.append(toolbar, wysiwyg, plain);
 
@@ -458,15 +396,10 @@ class SquireUI
 		this.squire.focus();
 	}
 
-	getParentNodeName(selector) {
-		let parent = this.squire.getSelectionClosest(selector);
-		return parent ? parent.nodeName : null;
-	}
-
 	doList(type) {
-		let parent = this.getParentNodeName('UL,OL'),
+		let parent = this.squire.getSelectionClosest('UL,OL')?.nodeName,
 			fn = {UL:'makeUnorderedList',OL:'makeOrderedList'};
-		(parent && parent == type) ? this.squire.removeList() : this.squire[fn[type]]();
+		(parent == type) ? this.squire.removeList() : this.squire[fn[type]]();
 	}
 
 	testPresenceinSelection(format, validation) {
@@ -475,19 +408,22 @@ class SquireUI
 
 	setMode(mode) {
 		if (this.mode != mode) {
-			let cl = this.container.classList;
+			let cl = this.container.classList, source = 'source' == this.mode;
 			cl.remove('squire-mode-'+this.mode);
 			if ('plain' == mode) {
-				this.plain.value = rl.Utils.htmlToPlain(this.squire.getHTML(), true).trim();
+				this.plain.value = htmlToPlain(source ? this.plain.value : this.squire.getHTML(), true);
+			} else if ('source' == mode) {
+				this.plain.value = this.squire.getHTML();
 			} else {
-				this.setData(rl.Utils.plainToHtml(this.plain.value, true));
+				this.setData(source ? this.plain.value : plainToHtml(this.plain.value, true));
 				mode = 'wysiwyg';
 			}
 			this.mode = mode; // 'wysiwyg' or 'plain'
 			cl.add('squire-mode-'+mode);
-			this.onModeChange && this.onModeChange();
+			this.onModeChange?.();
 			setTimeout(()=>this.focus(),1);
 		}
+		this.modeSelect.selectedIndex = 'plain' == this.mode ? 1 : 0;
 	}
 
 	// CKeditor gimmicks used by HtmlEditor
@@ -510,19 +446,31 @@ class SquireUI
 			}, cfg);
 
 			if (cfg.clearCache) {
-				this.__previous_signature = null;
+				this._prev_txt_sig = null;
 			} else try {
+				const signature = cfg.isHtml ? htmlToPlain(cfg.signature) : cfg.signature;
 				if ('plain' === this.mode) {
-					if (cfg.isHtml) {
-						cfg.signature = rl.Utils.htmlToPlain(cfg.signature);
+					let
+						text = this.plain.value,
+						prevSignature = this._prev_txt_sig;
+					if (prevSignature) {
+						text = text.replace(prevSignature, '').trim();
 					}
-					this.plain.value = rl_signature_replacer(this, this.plain.value, cfg.signature, false, cfg.insertBefore);
+					this.plain.value = cfg.insertBefore ? '\n\n' + signature + '\n\n' + text : text + '\n\n' +  signature;
 				} else {
-					if (!cfg.isHtml) {
-						cfg.signature = rl.Utils.plainToHtml(cfg.signature);
-					}
-					this.setData(rl_signature_replacer(this, this.getData(), cfg.signature, true, cfg.insertBefore));
+					const squire = this.squire,
+						root = squire.getRoot(),
+						br = createElement('br'),
+						div = createElement('div');
+					div.className = 'rl-signature';
+					div.innerHTML = cfg.isHtml ? cfg.signature : plainToHtml(cfg.signature);
+					root.querySelectorAll('div.rl-signature').forEach(node => node.remove());
+					cfg.insertBefore ? root.prepend(div) : root.append(div);
+					// Move cursor above signature
+					div.before(br);
+					div.before(br.cloneNode());
 				}
+				this._prev_txt_sig = signature;
 			} catch (e) {
 				console.error(e);
 			}
@@ -530,22 +478,22 @@ class SquireUI
 	}
 
 	getData() {
-		return trimLines(this.squire.getHTML());
+		return 'source' == this.mode ? this.plain.value : trimLines(this.squire.getHTML());
 	}
 
 	setData(html) {
 //		this.plain.value = html;
-		this.squire.setHTML(trimLines(html));
+		const squire = this.squire;
+		squire.setHTML(trimLines(html));
+		const node = squire.getRoot(),
+			range = squire.getSelection();
+		range.setStart(node, 0);
+		range.setEnd(node, 0);
+		squire.setSelection( range );
 	}
 
 	focus() {
 		('plain' == this.mode ? this.plain : this.squire).focus();
-	}
-
-	resize(width, height) {
-		height = Math.max(200, (height - this.wysiwyg.offsetTop)) + 'px';
-		this.wysiwyg.style.height = height;
-		this.plain.style.height = height;
 	}
 }
 

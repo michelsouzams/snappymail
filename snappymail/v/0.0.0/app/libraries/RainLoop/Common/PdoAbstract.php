@@ -104,7 +104,7 @@ abstract class PdoAbstract
 				}
 //				else if ('sqlite' === $sType && 'sqlite' === $sPdoType && $this->bSqliteCollate)
 //				{
-//					if (\method_exists($oPdo, 'sqliteCreateCollation') && \MailSo\Base\Utils::FunctionExistsAndEnabled('mb_strtoupper'))
+//					if (\method_exists($oPdo, 'sqliteCreateCollation'))
 //					{
 //						$oPdo->sqliteCreateCollation('SQLITE_NOCASE_UTF8', array($this, 'sqliteNoCaseCollationHelper'));
 //						$bCaseFunc = true;
@@ -233,59 +233,8 @@ abstract class PdoAbstract
 	{
 		if ($this->oLogger)
 		{
-			$this->oLogger->WriteMixed($mData, \MailSo\Log\Enumerations\Type::INFO, 'SQL');
+			$this->oLogger->WriteMixed($mData, \LOG_INFO, 'SQL');
 		}
-	}
-
-	protected function getUserId(string $sEmail, bool $bSkipInsert = false, bool $bCache = true) : int
-	{
-		static $aCache = array();
-		if ($bCache && isset($aCache[$sEmail]))
-		{
-			return $aCache[$sEmail];
-		}
-
-		$sEmail = \MailSo\Base\Utils::IdnToAscii(\trim($sEmail), true);
-		if (empty($sEmail))
-		{
-			throw new \InvalidArgumentException('Empty Email argument');
-		}
-
-		$oStmt = $this->prepareAndExecute('SELECT id_user FROM rainloop_users WHERE rl_email = :rl_email',
-			array(
-				':rl_email' => array($sEmail, \PDO::PARAM_STR)
-			)
-		);
-
-		$mRow = $oStmt->fetch(\PDO::FETCH_ASSOC);
-		if ($mRow && isset($mRow['id_user']) && \is_numeric($mRow['id_user']))
-		{
-			$iResult = (int) $mRow['id_user'];
-			if (0 >= $iResult)
-			{
-				throw new \Exception('id_user <= 0');
-			}
-
-			if ($bCache)
-			{
-				$aCache[$sEmail] = $iResult;
-			}
-
-			return $iResult;
-		}
-
-		if (!$bSkipInsert)
-		{
-			$oStmt->closeCursor();
-
-			$oStmt = $this->prepareAndExecute('INSERT INTO rainloop_users (rl_email) VALUES (:rl_email)',
-				array(':rl_email' => array($sEmail, \PDO::PARAM_STR))
-			);
-
-			return $this->getUserId($sEmail, true);
-		}
-
-		throw new \Exception('id_user = 0');
 	}
 
 	public function quoteValue(string $sValue) : string
@@ -294,42 +243,29 @@ abstract class PdoAbstract
 		return $oPdo ? $oPdo->quote((string) $sValue, \PDO::PARAM_STR) : '\'\'';
 	}
 
-	protected function getSystemValue(string $sName, bool $bReturnIntValue = true) : int
+	protected function getVersion(string $sName) : ?int
 	{
 		$oPdo = $this->getPDO();
 		if ($oPdo)
 		{
-			if ($bReturnIntValue)
-			{
-				$sQuery = 'SELECT value_int FROM rainloop_system WHERE sys_name = ?';
-			}
-			else
-			{
-				$sQuery = 'SELECT value_str FROM rainloop_system WHERE sys_name = ?';
-			}
+			$sQuery = 'SELECT MAX(value_int) FROM rainloop_system WHERE sys_name = ?';
 
 			$this->writeLog($sQuery);
 
 			$oStmt = $oPdo->prepare($sQuery);
-			if ($oStmt->execute(array($sName)))
+			if ($oStmt->execute(array($sName.'_version')))
 			{
-				$mRow = $oStmt->fetchAll(\PDO::FETCH_ASSOC);
-				$sKey = $bReturnIntValue ? 'value_int' : 'value_str';
-				if ($mRow && isset($mRow[0][$sKey]))
+				$mRow = $oStmt->fetch(\PDO::FETCH_NUM);
+				if ($mRow && isset($mRow[0]))
 				{
-					return $bReturnIntValue ? (int) $mRow[0][$sKey] : (string) $mRow[0][$sKey];
+					return (int) $mRow[0];
 				}
 
-				return $bReturnIntValue ? 0 : '';
+				return 0;
 			}
 		}
 
-		return false;
-	}
-
-	protected function getVersion(string $sName) : int
-	{
-		return $this->getSystemValue($sName.'_version', true);
+		return null;
 	}
 
 	protected function setVersion(string $sName, int $iVersion) : bool
@@ -374,32 +310,28 @@ abstract class PdoAbstract
 			{
 				case 'mysql':
 					$aQ[] = 'CREATE TABLE IF NOT EXISTS rainloop_system (
-id bigint UNSIGNED NOT NULL AUTO_INCREMENT,
-sys_name varchar(50) NOT NULL,
+sys_name varchar(64) NOT NULL,
 value_int int UNSIGNED NOT NULL DEFAULT 0,
-value_str varchar(128) NOT NULL DEFAULT \'\',
-PRIMARY KEY(id),
-INDEX sys_name_rainloop_system_index (sys_name)
-) ENGINE=INNODB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;';
+PRIMARY KEY (sys_name)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;';
 					$aQ[] = 'CREATE TABLE IF NOT EXISTS rainloop_users (
 id_user int UNSIGNED NOT NULL AUTO_INCREMENT,
-rl_email varchar(128) NOT NULL DEFAULT \'\',
-PRIMARY KEY(id_user),
-INDEX rl_email_rainloop_users_index (rl_email)
-) ENGINE=INNODB;';
+rl_email varchar(254) NOT NULL,
+PRIMARY KEY (id_user),
+UNIQUE KEY ui_rainloop_users_email (rl_email)
+);';
 					break;
 
 				case 'pgsql':
 					$aQ[] = 'CREATE TABLE rainloop_system (
 sys_name varchar(50) NOT NULL,
-value_int integer NOT NULL DEFAULT 0,
-value_str varchar(128) NOT NULL DEFAULT \'\'
+value_int integer NOT NULL DEFAULT 0
 );';
 					$aQ[] = 'CREATE INDEX sys_name_rainloop_system_index ON rainloop_system (sys_name);';
 					$aQ[] = 'CREATE SEQUENCE id_user START WITH 1 INCREMENT BY 1 NO MAXVALUE NO MINVALUE CACHE 1;';
 					$aQ[] = 'CREATE TABLE rainloop_users (
 id_user integer DEFAULT nextval(\'id_user\'::text) PRIMARY KEY,
-rl_email varchar(128) NOT NULL DEFAULT \'\'
+rl_email varchar(254) NOT NULL DEFAULT \'\'
 );';
 					$aQ[] = 'CREATE INDEX rl_email_rainloop_users_index ON rainloop_users (rl_email);';
 					break;
@@ -407,10 +339,9 @@ rl_email varchar(128) NOT NULL DEFAULT \'\'
 				case 'sqlite':
 					$aQ[] = 'CREATE TABLE rainloop_system (
 sys_name text NOT NULL,
-value_int integer NOT NULL DEFAULT 0,
-value_str text NOT NULL DEFAULT \'\'
+value_int integer NOT NULL DEFAULT 0
 );';
-					$aQ[] = 'CREATE INDEX sys_name_rainloop_system_index ON rainloop_system (sys_name);';
+					$aQ[] = 'CREATE UNIQUE INDEX ui_rainloop_system_sys_name ON rainloop_system (sys_name);';
 					$aQ[] = 'CREATE TABLE rainloop_users (
 id_user integer NOT NULL PRIMARY KEY,
 rl_email text NOT NULL DEFAULT \'\'
@@ -419,7 +350,7 @@ rl_email text NOT NULL DEFAULT \'\'
 					break;
 			}
 
-			if (0 < \count($aQ))
+			if (\count($aQ))
 			{
 				try
 				{

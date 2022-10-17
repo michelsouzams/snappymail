@@ -2,7 +2,7 @@
 
 namespace RainLoop\Config;
 
-abstract class AbstractConfig
+abstract class AbstractConfig implements \JsonSerializable
 {
 	/**
 	 * @var string
@@ -12,7 +12,7 @@ abstract class AbstractConfig
 	/**
 	 * @var string
 	 */
-	private $sAdditionalFile;
+	private $sAdditionalFile = '';
 
 	/**
 	 * @var array
@@ -34,22 +34,31 @@ abstract class AbstractConfig
 		$this->sFile = \APP_PRIVATE_DATA.'configs/'.\trim($sFileName);
 
 		$sAdditionalFileName = \trim($sAdditionalFileName);
-		$this->sAdditionalFile = \APP_PRIVATE_DATA.'configs/'.$sAdditionalFileName;
-		$this->sAdditionalFile = 0 < \strlen($sAdditionalFileName) &&
-			\file_exists($this->sAdditionalFile) ? $this->sAdditionalFile : '';
+		if (\strlen($sAdditionalFileName)) {
+			$sAdditionalFileName = \APP_PRIVATE_DATA.'configs/'.$sAdditionalFileName;
+			if (\file_exists($this->sAdditionalFile)) {
+				$this->sAdditionalFile = $this->sAdditionalFile;
+			}
+		}
 
 		$this->sFileHeader = $sFileHeader;
 		$this->aData = $this->defaultValues();
 
 		$this->bUseApcCache = APP_USE_APCU_CACHE &&
-			\MailSo\Base\Utils::FunctionExistsAndEnabled(array('apcu_fetch', 'apcu_store'));
+			\MailSo\Base\Utils::FunctionsCallable(array('apcu_fetch', 'apcu_store'));
 	}
 
 	protected abstract function defaultValues() : array;
 
 	public function IsInited() : bool
 	{
-		return \is_array($this->aData) && 0 < \count($this->aData);
+		return \is_array($this->aData) && \count($this->aData);
+	}
+
+	#[\ReturnTypeWillChange]
+	public function jsonSerialize()
+	{
+		return $this->aData;
 	}
 
 	/**
@@ -59,12 +68,9 @@ abstract class AbstractConfig
 	 */
 	public function Get(string $sSection, string $sName, $mDefault = null)
 	{
-		$mResult = $mDefault;
-		if (isset($this->aData[$sSection][$sName][0]))
-		{
-			$mResult = $this->aData[$sSection][$sName][0];
-		}
-		return $mResult;
+		return isset($this->aData[$sSection][$sName][0])
+			? $this->aData[$sSection][$sName][0]
+			: $mDefault;
 	}
 
 	/**
@@ -171,11 +177,6 @@ abstract class AbstractConfig
 		return false;
 	}
 
-	public function IsFileExists() : bool
-	{
-		return \file_exists($this->sFile);
-	}
-
 	public function Load() : bool
 	{
 		if (\file_exists($this->sFile) && \is_readable($this->sFile))
@@ -185,8 +186,8 @@ abstract class AbstractConfig
 				return true;
 			}
 
-			$aData = \RainLoop\Utils::CustomParseIniFile($this->sFile, true);
-			if (0 < \count($aData))
+			$aData = \parse_ini_file($this->sFile, true);
+			if ($aData && \count($aData))
 			{
 				foreach ($aData as $sSectionKey => $aSectionValue)
 				{
@@ -203,8 +204,8 @@ abstract class AbstractConfig
 
 				if (\file_exists($this->sAdditionalFile) && \is_readable($this->sAdditionalFile))
 				{
-					$aSubData = \RainLoop\Utils::CustomParseIniFile($this->sAdditionalFile, true);
-					if (\is_array($aSubData) && 0 < \count($aSubData))
+					$aSubData = \parse_ini_file($this->sAdditionalFile, true);
+					if ($aSubData && \count($aSubData))
 					{
 						foreach ($aSubData as $sSectionKey => $aSectionValue)
 						{
@@ -227,7 +228,7 @@ abstract class AbstractConfig
 			}
 		}
 
-		return false;
+		return $this->Save();
 	}
 
 	public function Save() : bool
@@ -294,8 +295,11 @@ abstract class AbstractConfig
 		}
 
 		$this->clearCache();
-		return false !== \file_put_contents($this->sFile,
-			(0 < \strlen($this->sFileHeader) ? $this->sFileHeader : '').
+
+		\RainLoop\Utils::saveFile($this->sFile,
+			(\strlen($this->sFileHeader) ? $this->sFileHeader : '').
 			$sNewLine.\implode($sNewLine, $aResultLines));
+
+		return true;
 	}
 }

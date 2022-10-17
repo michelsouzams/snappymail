@@ -1,26 +1,24 @@
 
 @contacts-popup-left-width: 25%;
 
-.RL-PopupsContacts {
+#V-PopupsContacts {
+
+	bottom: 0;
+	width: auto;
+	min-width: 550px;
+	max-width: 900px;
+	min-height: 300px;
+	max-height: 700px;
 
 	.control-group {
-		.control-label {
+		label.iconsize24 {
 			padding-top: 0;
 			width: 50px;
 		}
 	}
 
-	.modal {
-		bottom: 0;
-		width: auto;
-		min-width: 550px;
-		max-width: 900px;
-		min-height: 300px;
-		max-height: 700px;
-	}
-
 	.modal-body {
-		height: calc(100% - 49px);
+		height: calc(100vh - 49px);
 		padding: 0;
 		position: relative;
 	}
@@ -66,7 +64,6 @@
 		.listClear {
 			text-align: center;
 			padding: 10px;
-			font-size: 14px;
 			line-height: 13px;
 			box-shadow: inset 0 -1px 0 #ccc;
 		}
@@ -77,12 +74,6 @@
 			padding: 60px 10px;
 			font-size: 24px;
 			line-height: 30px;
-		}
-
-		&.hideContactListCheckbox {
-			.checkboxItem {
-				visibility: hidden;
-			}
 		}
 	}
 
@@ -144,29 +135,23 @@
 	.b-view-content-toolbar {
 		padding: 7px;
 		position: absolute;
-		top: 0;
+		bottom: 0;
 		right: 0;
 		left: @contacts-popup-left-width;
 		height: 30px;
 		text-align: right;
-		border-bottom: 1px solid rgba(128,128,128,0.4);
+		border-top: 1px solid rgba(128,128,128,0.4);
 
-		.button-save-contact {
-			&.dirty:enabled {
-				color: #51a351;
-				font-weight: bold;
-			}
-		}
-
-		&.read-only .button-save-contact {
-			display: none;
+		.dropdown-menu.right-edge {
+			top: auto;
+			bottom: 100%;
 		}
 	}
 
 	.b-view-content {
 		position: absolute;
-		top: 45px;
-		bottom: 0;
+		top: 0;
+		bottom: 45px;
 		left: @contacts-popup-left-width;
 		right: 0;
 		overflow: auto;
@@ -189,24 +174,8 @@
 			color: #999;
 		}
 
-		.top-part {
-			padding-top: 20px;
-		}
-
 		.property-line {
 			margin-bottom: 5px;
-		}
-
-		.top-row {
-			padding: 10px 0;
-			height: 30px;
-		}
-
-		.add-link {
-			margin-left: 2px;
-			padding: 5px;
-			font-size: 12px;
-			color: #aaa;
 		}
 
 		input, textarea {
@@ -226,42 +195,35 @@
 				border-color: #999;
 			}
 		}
+	}
 
-		.hasError {
-			input {
-				color: #ee5f5b;
-				border-color: #ee5f5b;
-			}
+	.read-only-sign {
+		display: none;
+		position: absolute;
+		top: 20px;
+		right: 40px;
+	}
+
+	.read-only {
+		span, .e-read-only-sign {
+			display: inline-block;
 		}
 
-		.e-save-trigger {
-			position: absolute;
-			top: 25px;
-			left: 10px;
-		}
-
-		.e-read-only-sign {
+		input, textarea {
 			display: none;
-			position: absolute;
-			top: 20px;
-			right: 40px;
 		}
+	}
 
-		.e-share-sign {
-			position: absolute;
-			top: 20px;
-			right: 20px;
-			cursor: pointer;
-		}
+	.tab-content {
+		grid-column-end: 4;
+		padding-top: 20px;
+	}
+}
 
-		&.read-only {
-			span, .e-read-only-sign {
-				display: inline-block;
-			}
-
-			input, textarea, .e-share-sign {
-				display: none;
-			}
+html:not(rl-mobile) {
+	.hideContactListCheckbox {
+		.checkboxItem {
+			visibility: hidden;
 		}
 	}
 }

@@ -2,28 +2,16 @@
 
 namespace RainLoop;
 
-class Api
+abstract class Api
 {
 
-	function __construct()
-	{
-	}
-
-	public static function RunResult() : bool
-	{
-		return true;
-	}
-
-	/**
-	 * @staticvar bool $bOne
-	 */
 	public static function Handle() : bool
 	{
-		static $bOne = null;
-		if (null === $bOne)
+		static $bOne = false;
+		if (!$bOne)
 		{
 			static::SetupDefaultMailSoConfig();
-			$bOne = static::RunResult();
+			$bOne = true;
 		}
 		return $bOne;
 	}
@@ -60,31 +48,34 @@ class Api
 		if (!$oConfig) {
 			$oConfig = new Config\Application();
 			if (!$oConfig->Load()) {
-				usleep(10000);
+				\usleep(10000);
 				$oConfig->Load();
 			}
-
-//			if (!$bLoaded && !$oConfig->IsFileExists())
-//			{
-//				$bSave = true;
-//			}
-//
-//			if ($bLoaded && !$bSave)
-//			{
-//				$bSave = APP_VERSION !== $oConfig->Get('version', 'current');
-//			}
-//
-//			if ($bSave)
-//			{
-//				$oConfig->Save();
-//			}
+//			\ini_set('display_errors', 0);
+			if ($oConfig->Get('debug', 'enable', false)) {
+				\error_reporting(E_ALL);
+//				\ini_set('display_errors', 1);
+				\ini_set('log_errors', 1);
+			}
 		}
 		return $oConfig;
 	}
 
 	public static function Logger() : \MailSo\Log\Logger
 	{
-		return static::Actions()->Logger();
+		static $oLogger = null;
+		if (!$oLogger) {
+			$oConfig = static::Config();
+			$oLogger = new \MailSo\Log\Logger;
+			if ($oConfig->Get('debug', 'enable', false)) {
+				$oLogger->SetShowSecrets(!$oConfig->Get('logs', 'hide_passwords', true));
+				$oLogger->SetLevel(\LOG_DEBUG);
+			} else if ($oConfig->Get('logs', 'enable', false)) {
+				$oLogger->SetShowSecrets(!$oConfig->Get('logs', 'hide_passwords', true));
+				$oLogger->SetLevel(\max(3, \RainLoop\Api::Config()->Get('logs', 'level', \LOG_WARNING)));
+			}
+		}
+		return $oLogger;
 	}
 
 	protected static function SetupDefaultMailSoConfig() : void
@@ -115,16 +106,14 @@ class Api
 			\MailSo\Config::$BoundaryPrefix =
 				\trim(static::Config()->Get('labs', 'boundary_prefix', ''));
 
-			\MailSo\Config::$SystemLogger = static::Logger();
-
 			$sSslCafile = static::Config()->Get('ssl', 'cafile', '');
 			$sSslCapath = static::Config()->Get('ssl', 'capath', '');
 
 			Utils::$CookieDefaultPath = static::Config()->Get('labs', 'cookie_default_path', '');
-			if (static::Config()->Get('labs', 'cookie_default_secure', false))
-			{
-				Utils::$CookieDefaultSecure = true;
-			}
+			Utils::$CookieSameSite = static::Config()->Get('security', 'cookie_samesite', 'Strict');
+			Utils::$CookieSecure = isset($_SERVER['HTTPS'])
+				|| 'None' == Utils::$CookieSameSite
+				|| !!static::Config()->Get('labs', 'cookie_default_secure', false);
 
 			if (!empty($sSslCafile) || !empty($sSslCapath))
 			{
@@ -144,53 +133,7 @@ class Api
 				});
 			}
 
-			\MailSo\Config::$HtmlStrictDebug = !!static::Config()->Get('debug', 'enable', false);
-
 			\MailSo\Config::$CheckNewMessages = !!static::Config()->Get('labs', 'check_new_messages', true);
-
-			if (static::Config()->Get('labs', 'strict_html_parser', true))
-			{
-				\MailSo\Config::$HtmlStrictAllowedAttributes = array(
-					// defaults
-					'name',
-					'dir', 'lang', 'style', 'title',
-					'background', 'bgcolor', 'alt', 'height', 'width', 'src', 'href',
-					'border', 'bordercolor', 'charset', 'direction', 'language',
-					// a
-					'coords', 'download', 'hreflang', 'shape',
-					// body
-					'alink', 'bgproperties', 'bottommargin', 'leftmargin', 'link', 'rightmargin', 'text', 'topmargin', 'vlink',
-					'marginwidth', 'marginheight', 'offset',
-					// button,
-					'disabled', 'type', 'value',
-					// col
-					'align', 'valign',
-					// font
-					'color', 'face', 'size',
-					// form
-					'novalidate',
-					// hr
-					'noshade',
-					// img
-					'hspace', 'sizes', 'srcset', 'vspace', 'usemap',
-					// input, textarea
-					'checked', 'max', 'min', 'maxlength', 'multiple', 'pattern', 'placeholder', 'readonly', 'required', 'step', 'wrap',
-					// label
-					'for',
-					// meter
-					'low', 'high', 'optimum',
-					// ol
-					'reversed', 'start',
-					// option
-					'selected', 'label',
-					// table
-					'cols', 'rows', 'frame', 'rules', 'summary', 'cellpadding', 'cellspacing',
-					// th
-					'abbr', 'scope',
-					// td
-					'axis', 'colspan', 'rowspan', 'headers', 'nowrap'
-				);
-			}
 		}
 	}
 
@@ -199,17 +142,19 @@ class Api
 		return APP_VERSION;
 	}
 
-	public static function GetUserSsoHash(string $sEmail, string $sPassword, array $aAdditionalOptions = array(), bool $bUseTimeout = true) : string
+	public static function CreateUserSsoHash(string $sEmail, string $sPassword, array $aAdditionalOptions = array(), bool $bUseTimeout = true) : ?string
 	{
-		$sSsoHash = \MailSo\Base\Utils::Sha1Rand(\md5($sEmail).\md5($sPassword));
+		$sSsoHash = \MailSo\Base\Utils::Sha1Rand(\sha1($sPassword.$sEmail));
 
-		return static::Actions()->Cacher()->Set(KeyPathHelper::SsoCacherKey($sSsoHash),
-			Utils::EncodeKeyValuesQ(array(
+		return static::Actions()->Cacher()->Set(
+			KeyPathHelper::SsoCacherKey($sSsoHash),
+			\SnappyMail\Crypt::EncryptToJSON(array(
 				'Email' => $sEmail,
 				'Password' => $sPassword,
 				'AdditionalOptions' => $aAdditionalOptions,
 				'Time' => $bUseTimeout ? \time() : 0
-			))) ? $sSsoHash : '';
+			), $sSsoHash)
+		) ? $sSsoHash : null;
 	}
 
 	public static function ClearUserSsoHash(string $sSsoHash) : bool
@@ -219,7 +164,7 @@ class Api
 
 	public static function ClearUserData(string $sEmail) : bool
 	{
-		if (0 < \strlen($sEmail))
+		if (\strlen($sEmail))
 		{
 			$sEmail = \MailSo\Base\Utils::IdnToAscii($sEmail);
 
@@ -229,10 +174,10 @@ class Api
 				$oStorageProvider->DeleteStorage($sEmail);
 			}
 
-			if (static::Actions()->AddressBookProvider() &&
-				static::Actions()->AddressBookProvider()->IsActive())
+			$oAddressBookProvider = static::Actions()->AddressBookProvider();
+			if ($oAddressBookProvider)
 			{
-				static::Actions()->AddressBookProvider()->DeleteAllContacts($sEmail);
+				$oAddressBookProvider->DeleteAllContacts($sEmail);
 			}
 
 			return true;
@@ -243,15 +188,8 @@ class Api
 
 	public static function LogoutCurrentLogginedUser() : bool
 	{
-		Utils::ClearCookie('rlsession');
+		// TODO: kill SignMe data to prevent automatic login?
+		Utils::ClearCookie(Utils::SESSION_TOKEN);
 		return true;
-	}
-
-	public static function ExitOnEnd() : void
-	{
-		if (!\defined('SNAPPYMAIL_EXIT_ON_END'))
-		{
-			\define('SNAPPYMAIL_EXIT_ON_END', true);
-		}
 	}
 }

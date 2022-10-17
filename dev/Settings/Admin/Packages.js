@@ -8,32 +8,28 @@ import Remote from 'Remote/Admin/Fetch';
 
 import { showScreenPopup } from 'Knoin/Knoin';
 import { PluginPopupView } from 'View/Popup/Plugin';
-import { SettingsGet } from 'Common/Globals';
+import { addObservablesTo, addComputablesTo } from 'External/ko';
+import { AbstractViewSettings } from 'Knoin/AbstractViews';
 
-export class PackagesAdminSettings {
+export class AdminSettingsPackages extends AbstractViewSettings {
 	constructor() {
-		this.packagesError = ko.observable('');
+		super();
+
+		this.addSettings(['EnabledPlugins']);
+
+		addObservablesTo(this, {
+			packagesError: ''
+		});
 
 		this.packages = PackageAdminStore;
 
-		this.packagesCurrent = ko.computed(() =>
-			PackageAdminStore.filter(item => item && item.installed && !item.canBeUpdated)
-		);
-		this.packagesAvailableForUpdate = ko.computed(() =>
-			PackageAdminStore.filter(item => item && item.installed && !!item.canBeUpdated)
-		);
-		this.packagesAvailableForInstallation = ko.computed(() =>
-			PackageAdminStore.filter(item => item && !item.installed)
-		);
+		addComputablesTo(this, {
+			packagesCurrent: () => PackageAdminStore().filter(item => item?.installed && !item.canBeUpdated),
+			packagesUpdate: () => PackageAdminStore().filter(item => item?.installed && item.canBeUpdated),
+			packagesAvailable: () => PackageAdminStore().filter(item => !item?.installed),
 
-		this.visibility = ko.computed(() => (PackageAdminStore.loading() ? 'visible' : 'hidden'));
-
-		this.enabledPlugins = ko.observable(!!SettingsGet('EnabledPlugins'));
-		this.enabledPlugins.subscribe(value =>
-			Remote.saveAdminConfig(null, {
-				EnabledPlugins: value ? 1 : 0
-			})
-		);
+			visibility: () => (PackageAdminStore.loading() ? 'visible' : 'hidden')
+		});
 	}
 
 	onShow() {
@@ -46,32 +42,35 @@ export class PackagesAdminSettings {
 		oDom.addEventListener('click', event => {
 			// configurePlugin
 			let el = event.target.closestWithin('.package-configure', oDom),
-				data = el ? ko.dataFor(el) : 0;
-			data && Remote.plugin((iError, data) => iError || showScreenPopup(PluginPopupView, [data.Result]), data.name)
+				data = el && ko.dataFor(el);
+			data && Remote.request('AdminPluginLoad',
+				(iError, data) => iError || showScreenPopup(PluginPopupView, [data.Result]),
+				{
+					Id: data.id
+				}
+			);
 			// disablePlugin
 			el = event.target.closestWithin('.package-active', oDom);
-			data = el ? ko.dataFor(el) : 0;
+			data = el && ko.dataFor(el);
 			data && this.disablePlugin(data);
 		});
 	}
 
 	requestHelper(packageToRequest, install) {
 		return (iError, data) => {
-			if (iError) {
-				this.packagesError(
-					getNotification(install ? Notification.CantInstallPackage : Notification.CantDeletePackage)
-//					':\n' + getNotification(iError);
-				);
-			}
-
 			PackageAdminStore.forEach(item => {
-				if (item && packageToRequest && item.loading && item.loading() && packageToRequest.file === item.file) {
+				if (packageToRequest && item?.loading?.() && packageToRequest.file === item.file) {
 					packageToRequest.loading(false);
 					item.loading(false);
 				}
 			});
 
-			if (!iError && data.Result.Reload) {
+			if (iError) {
+				this.packagesError(
+					getNotification(install ? Notification.CantInstallPackage : Notification.CantDeletePackage)
+					+ (data.ErrorMessage ? ':\n' + data.ErrorMessage : '')
+				);
+			} else if (data.Result.Reload) {
 				location.reload();
 			} else {
 				PackageAdminStore.fetch();
@@ -82,30 +81,49 @@ export class PackagesAdminSettings {
 	deletePackage(packageToDelete) {
 		if (packageToDelete) {
 			packageToDelete.loading(true);
-			Remote.packageDelete(this.requestHelper(packageToDelete, false), packageToDelete);
+			Remote.request('AdminPackageDelete',
+				this.requestHelper(packageToDelete, false),
+				{
+					Id: packageToDelete.id
+				}
+			);
 		}
 	}
 
 	installPackage(packageToInstall) {
 		if (packageToInstall) {
 			packageToInstall.loading(true);
-			Remote.packageInstall(this.requestHelper(packageToInstall, true), packageToInstall);
+			Remote.request('AdminPackageInstall',
+				this.requestHelper(packageToInstall, true),
+				{
+					Id: packageToInstall.id,
+					Type: packageToInstall.type,
+					File: packageToInstall.file
+				},
+				60000
+			);
 		}
 	}
 
 	disablePlugin(plugin) {
-		let b = !plugin.enabled();
-		plugin.enabled(b);
-		Remote.pluginDisable((iError, data) => {
-			if (iError) {
-				this.packagesError(
-					(Notification.UnsupportedPluginPackage === iError && data && data.ErrorMessage)
-					? data.ErrorMessage
-					: getNotification(iError)
-				);
+		let disable = plugin.enabled();
+		plugin.enabled(!disable);
+		Remote.request('AdminPluginDisable',
+			(iError, data) => {
+				if (iError) {
+					plugin.enabled(disable);
+					this.packagesError(
+						(Notification.UnsupportedPluginPackage === iError && data?.ErrorMessage)
+						? data.ErrorMessage
+						: getNotification(iError)
+					);
+				}
+//				PackageAdminStore.fetch();
+			}, {
+				Id: plugin.id,
+				Disabled: disable ? 1 : 0
 			}
-//			PackageAdminStore.fetch();
-		}, plugin.name, !b);
+		);
 	}
 
 }

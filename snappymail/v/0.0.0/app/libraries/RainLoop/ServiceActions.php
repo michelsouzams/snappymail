@@ -74,12 +74,24 @@ class ServiceActions
 		return $this;
 	}
 
+/*
+	public function ServiceBackup() : void
+	{
+		if (\method_exists($this->oActions, 'DoAdminBackup')) {
+			$this->oActions->DoAdminBackup();
+		}
+		exit;
+	}
+*/
+
 	public function ServiceJson() : string
 	{
 		\ob_start();
 
 		$aResponseItem = null;
 		$oException = null;
+
+		$_POST = \json_decode(\file_get_contents('php://input'), true);
 
 		$sAction = $_POST['Action'] ?? null;
 		if (empty($sAction) && $this->oHttp->IsGet() && !empty($this->aPaths[2]))
@@ -95,17 +107,17 @@ class ServiceActions
 				$this->Config()->Get('security', 'csrf_protection', false) &&
 				($_POST['XToken'] ?? '') !== Utils::GetCsrfToken())
 			{
-				throw new Exceptions\ClientException(Notifications::InvalidToken);
+				throw new Exceptions\ClientException(Notifications::InvalidToken, null, 'CSRF failed');
 			}
-			else if (!empty($sAction))
+			if (!empty($sAction))
 			{
-				if (0 === stripos($sAction, 'Admin') && 'AdminLogin' !== $sAction && 'AdminLogout' !== $sAction) {
+				if ($this->oActions instanceof ActionsAdmin && 0 === \stripos($sAction, 'Admin') && !\in_array($sAction, ['AdminLogin', 'AdminLogout'])) {
 					$this->oActions->IsAdminLoggined();
 				}
 
 				$sMethodName = 'Do'.$sAction;
 
-				$this->Logger()->Write('Action: '.$sMethodName, \MailSo\Log\Enumerations\Type::NOTE, 'JSON');
+				$this->Logger()->Write('Action: '.$sMethodName, \LOG_INFO, 'JSON');
 
 				$aPost = $_POST ?? null;
 				if ($aPost)
@@ -126,8 +138,8 @@ class ServiceActions
 							break;
 					}
 */
-					$this->Logger()->Write(\MailSo\Base\Utils::Php2js($aPost, $this->Logger()),
-						\MailSo\Log\Enumerations\Type::INFO, 'POST', true);
+					$this->Logger()->Write(Utils::jsonEncode($aPost),
+						\LOG_INFO, 'POST', true);
 				}
 				else if (3 < \count($this->aPaths) && $this->oHttp->IsGet())
 				{
@@ -140,7 +152,7 @@ class ServiceActions
 					\is_callable(array($this->oActions, $sMethodName)))
 				{
 					$this->Plugins()->RunHook('json.action-pre-call', array($sAction));
-					$aResponseItem = \call_user_func(array($this->oActions, $sMethodName));
+					$aResponseItem = $this->oActions->{$sMethodName}();
 					$this->Plugins()->RunHook('json.action-post-call', array($sAction, &$aResponseItem));
 				}
 				else if ($this->Plugins()->HasAdditionalJson($sMethodName))
@@ -158,25 +170,13 @@ class ServiceActions
 		}
 		catch (\Throwable $oException)
 		{
-			error_log($oException->getMessage());
+			\SnappyMail\Log::warning('SERVICE', "{$oException->getMessage()}\r\n{$oException->getTraceAsString()}");
 			if ($e = $oException->getPrevious()) {
-				error_log("\t{$e->getMessage()} @ {$e->getFile()}#{$e->getLine()}");
+				\SnappyMail\Log::warning('SERVICE', "- {$e->getMessage()} @ {$e->getFile()}#{$e->getLine()}");
 			}
 
 			$aResponseItem = $this->oActions->ExceptionResponse(
 				empty($sAction) ? 'Unknown' : $sAction, $oException);
-
-			if (\is_array($aResponseItem) && $oException instanceof Exceptions\ClientException)
-			{
-				if ($oException->getLogoutOnException())
-				{
-					$aResponseItem['Logout'] = true;
-					if ($oException->getAdditionalMessage())
-					{
-						$this->oActions->SetSpecLogoutCustomMgsWithDeletion($oException->getAdditionalMessage());
-					}
-				}
-			}
 		}
 
 		if (\is_array($aResponseItem))
@@ -186,27 +186,29 @@ class ServiceActions
 
 		$this->Plugins()->RunHook('filter.json-response', array($sAction, &$aResponseItem));
 
-		\header('Content-Type: application/json; charset=utf-8');
+		if (!\headers_sent()) {
+			\header('Content-Type: application/json; charset=utf-8');
+		}
 
-		$sResult = \MailSo\Base\Utils::Php2js($aResponseItem, $this->Logger());
+		$sResult = Utils::jsonEncode($aResponseItem);
 
 		$sObResult = \ob_get_clean();
 
 		if ($this->Logger()->IsEnabled())
 		{
-			if (0 < \strlen($sObResult))
+			if (\strlen($sObResult))
 			{
-				$this->Logger()->Write($sObResult, \MailSo\Log\Enumerations\Type::ERROR, 'OB-DATA');
+				$this->Logger()->Write($sObResult, \LOG_ERR, 'OB-DATA');
 			}
 
 			if ($oException)
 			{
-				$this->Logger()->WriteException($oException, \MailSo\Log\Enumerations\Type::ERROR);
+				$this->Logger()->WriteException($oException, \LOG_ERR);
 			}
 
 			$iLimit = (int) $this->Config()->Get('labs', 'log_ajax_response_write_limit', 0);
 			$this->Logger()->Write(0 < $iLimit && $iLimit < \strlen($sResult)
-					? \substr($sResult, 0, $iLimit).'...' : $sResult, \MailSo\Log\Enumerations\Type::INFO, 'JSON');
+					? \substr($sResult, 0, $iLimit).'...' : $sResult, \LOG_INFO, 'JSON');
 		}
 
 		return $sResult;
@@ -223,7 +225,7 @@ class ServiceActions
 				\is_callable(array($this->oActions, 'Append')))
 			{
 				isset($_POST) && $this->oActions->SetActionParams($_POST, 'Append');
-				$bResponse = \call_user_func(array($this->oActions, 'Append'));
+				$bResponse = $this->oActions->Append();
 			}
 		}
 		catch (\Throwable $oException)
@@ -235,17 +237,17 @@ class ServiceActions
 		$sResult = true === $bResponse ? '1' : '0';
 
 		$sObResult = \ob_get_clean();
-		if (0 < \strlen($sObResult))
+		if (\strlen($sObResult))
 		{
-			$this->Logger()->Write($sObResult, \MailSo\Log\Enumerations\Type::ERROR, 'OB-DATA');
+			$this->Logger()->Write($sObResult, \LOG_ERR, 'OB-DATA');
 		}
 
 		if ($oException)
 		{
-			$this->Logger()->WriteException($oException, \MailSo\Log\Enumerations\Type::ERROR);
+			$this->Logger()->WriteException($oException, \LOG_ERR);
 		}
 
-		$this->Logger()->Write($sResult, \MailSo\Log\Enumerations\Type::INFO, 'APPEND');
+		$this->Logger()->Write($sResult, \LOG_INFO, 'APPEND');
 
 		return $sResult;
 	}
@@ -265,9 +267,10 @@ class ServiceActions
 
 			$iError = UPLOAD_ERR_OK;
 			$_FILES = isset($_FILES) ? $_FILES : null;
-			if (isset($_FILES, $_FILES[$sInputName], $_FILES[$sInputName]['name'], $_FILES[$sInputName]['tmp_name'], $_FILES[$sInputName]['size']))
+			if (isset($_FILES[$sInputName], $_FILES[$sInputName]['name'], $_FILES[$sInputName]['tmp_name'], $_FILES[$sInputName]['size']))
 			{
 				$iError = (isset($_FILES[$sInputName]['error'])) ? (int) $_FILES[$sInputName]['error'] : UPLOAD_ERR_OK;
+//				\is_uploaded_file($_FILES[$sInputName]['tmp_name'])
 
 				if (UPLOAD_ERR_OK === $iError && 0 < $iSizeLimit && $iSizeLimit < (int) $_FILES[$sInputName]['size'])
 				{
@@ -279,7 +282,7 @@ class ServiceActions
 					$aFile = $_FILES[$sInputName];
 				}
 			}
-			else if (!isset($_FILES) || !is_array($_FILES) || 0 === count($_FILES))
+			else if (empty($_FILES))
 			{
 				$iError = UPLOAD_ERR_INI_SIZE;
 			}
@@ -298,7 +301,7 @@ class ServiceActions
 
 				$this->oActions->SetActionParams($aActionParams, $sAction);
 
-				$aResponseItem = \call_user_func(array($this->oActions, $sAction));
+				$aResponseItem = $this->oActions->{$sAction}();
 			}
 
 			if (!is_array($aResponseItem))
@@ -314,15 +317,15 @@ class ServiceActions
 		\header('Content-Type: application/json; charset=utf-8');
 
 		$this->Plugins()->RunHook('filter.upload-response', array(&$aResponseItem));
-		$sResult = \MailSo\Base\Utils::Php2js($aResponseItem, $this->Logger());
+		$sResult = Utils::jsonEncode($aResponseItem);
 
 		$sObResult = \ob_get_clean();
-		if (0 < \strlen($sObResult))
+		if (\strlen($sObResult))
 		{
-			$this->Logger()->Write($sObResult, \MailSo\Log\Enumerations\Type::ERROR, 'OB-DATA');
+			$this->Logger()->Write($sObResult, \LOG_ERR, 'OB-DATA');
 		}
 
-		$this->Logger()->Write($sResult, \MailSo\Log\Enumerations\Type::INFO, 'UPLOAD');
+		$this->Logger()->Write($sResult, \LOG_INFO, 'UPLOAD');
 
 		return $sResult;
 	}
@@ -344,38 +347,43 @@ class ServiceActions
 
 	public function ServiceProxyExternal() : string
 	{
-		$bResult = false;
 		$sData = empty($this->aPaths[1]) ? '' : $this->aPaths[1];
-		if (!empty($sData) && $this->oActions->Config()->Get('labs', 'use_local_proxy_for_external_images', false))
-		{
+		if ($sData && $this->Config()->Get('labs', 'use_local_proxy_for_external_images', false)) {
 			$this->oActions->verifyCacheByKey($sData);
-
-			$aData = Utils::DecodeKeyValuesQ($sData);
-			if (\is_array($aData) && !empty($aData['Token']) && !empty($aData['Url']) && $aData['Token'] === Utils::GetConnectionToken())
-			{
-				$iCode = 404;
-				$sContentType = '';
-				$mResult = $this->oHttp->GetUrlAsString($aData['Url'], 'SnappyMail External Proxy', $sContentType, $iCode);
-
-				if (false !== $mResult && 200 === $iCode &&
-					\in_array($sContentType, array('image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/gif')))
-				{
-					$bResult = true;
-
+			$sUrl = \MailSo\Base\Utils::UrlSafeBase64Decode($sData);
+			if (!empty($sUrl)) {
+				\header('X-Content-Location: '.$sUrl);
+				$tmp = \tmpfile();
+				$HTTP = \SnappyMail\HTTP\Request::factory();
+				$HTTP->max_redirects = 2;
+				$HTTP->streamBodyTo($tmp);
+				$oResponse = $HTTP->doRequest('GET', $sUrl);
+				if ($oResponse && 200 === $oResponse->status
+					&& \str_starts_with($oResponse->getHeader('content-type'), 'image/')
+				) try {
 					$this->oActions->cacheByKey($sData);
-
-					\header('Content-Type: '.$sContentType);
-					echo $mResult;
+					\header('Content-Type: ' . $oResponse->getHeader('content-type'));
+					\header('Cache-Control: public');
+					\header('Expires: '.\gmdate('D, j M Y H:i:s', 2592000 + \time()).' UTC');
+					\header('X-Content-Redirect-Location: '.$oResponse->final_uri);
+					\rewind($tmp);
+					\fpassthru($tmp);
+					exit;
+				} catch (\Throwable $e) {
+					$msg = \get_class($HTTP) . ': ' . $e->getMessage();
+					\SnappyMail\Log::error('Proxy', $msg);
+//					\error_log(\get_class($HTTP) . ': ' . $e->getMessage());
 				}
 			}
 		}
 
-		if (!$bResult)
-		{
-			\MailSo\Base\Http::StatusHeader(404);
-		}
-
+		\MailSo\Base\Http::StatusHeader(404);
 		return '';
+	}
+
+	public function ServiceCspReport() : void
+	{
+		\SnappyMail\HTTP\CSP::logReport();
 	}
 
 	public function ServiceRaw() : string
@@ -388,32 +396,33 @@ class ServiceActions
 		try
 		{
 			$sRawError = 'Invalid action';
-			if (0 !== \strlen($sAction))
+			if (\strlen($sAction))
 			{
-				$sMethodName = 'Raw'.$sAction;
-				if (\method_exists($this->oActions, $sMethodName))
-				{
-					\header('X-Raw-Action: '.$sMethodName, true);
-					\header('Content-Security-Policy: script-src \'none\'; child-src \'none\'', true);
-
-					$sRawError = '';
-					$this->oActions->SetActionParams(array(
-						'RawKey' => empty($this->aPaths[3]) ? '' : $this->aPaths[3],
-						'Params' => $this->aPaths
-					), $sMethodName);
-
-					if (!\call_user_func(array($this->oActions, $sMethodName)))
+				try {
+					$sMethodName = 'Raw'.$sAction;
+					if (\method_exists($this->oActions, $sMethodName))
 					{
-						$sRawError = 'False result';
+						\header('X-Raw-Action: '.$sMethodName);
+						\header('Content-Security-Policy: script-src \'none\'; child-src \'none\'');
+
+						$sRawError = '';
+						$this->oActions->SetActionParams(array(
+							'RawKey' => empty($this->aPaths[3]) ? '' : $this->aPaths[3],
+							'Params' => $this->aPaths
+						), $sMethodName);
+
+						if (!$this->oActions->{$sMethodName}())
+						{
+							$sRawError = 'False result';
+						}
 					}
 					else
 					{
-						$sRawError = '';
+						$sRawError = 'Unknown action "'.$sAction.'"';
 					}
-				}
-				else
-				{
-					$sRawError = 'Unknown action "'.$sAction.'"';
+				} catch (\Throwable $e) {
+//					error_log(print_r($e,1));
+					$sRawError = $e->getMessage();
 				}
 			}
 			else
@@ -423,28 +432,24 @@ class ServiceActions
 		}
 		catch (Exceptions\ClientException $oException)
 		{
-			$sRawError = 'Exception as result';
-			switch ($oException->getCode())
-			{
-				case Notifications::AuthError:
-					$sRawError = 'Authentication failed';
-					break;
-			}
+			$sRawError = Notifications::AuthError == $oException->getCode()
+				? 'Authentication failed'
+				: 'Exception as result';
 		}
 		catch (\Throwable $oException)
 		{
 			$sRawError = 'Exception as result';
 		}
 
-		if (0 < \strlen($sRawError))
+		if (\strlen($sRawError))
 		{
-			$this->oActions->Logger()->Write($sRawError, \MailSo\Log\Enumerations\Type::ERROR);
-			$this->oActions->Logger()->WriteDump($this->aPaths, \MailSo\Log\Enumerations\Type::ERROR, 'PATHS');
+			$this->Logger()->Write($sRawError, \LOG_ERR);
+			$this->Logger()->WriteDump($this->aPaths, \LOG_ERR, 'PATHS');
 		}
 
 		if ($oException)
 		{
-			$this->Logger()->WriteException($oException, \MailSo\Log\Enumerations\Type::ERROR, 'RAW');
+			$this->Logger()->WriteException($oException, \LOG_ERR, 'RAW');
 		}
 
 		return $sResult;
@@ -476,10 +481,10 @@ class ServiceActions
 				$sResult = $this->Cacher()->Get($sCacheFileName);
 			}
 
-			if (0 === \strlen($sResult))
+			if (!\strlen($sResult))
 			{
 				$sResult = $this->oActions->compileLanguage($sLanguage, $bAdmin);
-				if ($bCacheEnabled && 0 < \strlen($sCacheFileName))
+				if ($bCacheEnabled && \strlen($sCacheFileName))
 				{
 					$this->Cacher()->Set($sCacheFileName, $sResult);
 				}
@@ -514,10 +519,10 @@ class ServiceActions
 			$sResult = $this->Cacher()->Get($sCacheFileName);
 		}
 
-		if (0 === strlen($sResult))
+		if (!\strlen($sResult))
 		{
 			$sResult = $this->Plugins()->CompileJs($bAdmin);
-			if ($bCacheEnabled && 0 < \strlen($sCacheFileName))
+			if ($bCacheEnabled && \strlen($sCacheFileName))
 			{
 				$this->Cacher()->Set($sCacheFileName, $sResult);
 			}
@@ -578,7 +583,7 @@ class ServiceActions
 				}
 				catch (\Throwable $oException)
 				{
-					$this->Logger()->WriteException($oException, \MailSo\Log\Enumerations\Type::ERROR, 'LESS');
+					$this->Logger()->WriteException($oException, \LOG_ERR, 'LESS');
 				}
 			}
 
@@ -588,7 +593,7 @@ class ServiceActions
 			}
 		}
 
-		return $bJson ? \MailSo\Base\Utils::Php2js(array($sTheme, $sResult), $this->Logger()) : $sResult;
+		return $bJson ? Utils::jsonEncode(array($sTheme, $sResult)) : $sResult;
 	}
 
 	public function ServiceAppData() : string
@@ -618,7 +623,6 @@ class ServiceActions
 
 		\header('Content-Type: text/html; charset=utf-8');
 		return \strtr(\file_get_contents(APP_VERSION_ROOT_PATH.'app/templates/BadBrowser.html'), array(
-			'{{BaseWebStaticPath}}' => Utils::WebStaticPath(),
 			'{{ErrorTitle}}' => $sTitle,
 			'{{ErrorHeader}}' => $sTitle,
 			'{{ErrorDesc}}' => $sDesc
@@ -628,17 +632,17 @@ class ServiceActions
 	public function ServiceMailto() : string
 	{
 		$this->oHttp->ServerNoCache();
-
 		$sTo = \trim($_GET['to'] ?? '');
-		if (!empty($sTo) && \preg_match('/^mailto:/i', $sTo))
-		{
-			$oAccount = $this->oActions->GetAccountFromSignMeToken();
-			if ($oAccount)
-			{
-				$this->oActions->SetMailtoRequest($sTo);
-			}
+		if (!empty($sTo) && \preg_match('/^mailto:/i', $sTo)) {
+			Utils::SetCookie(
+				Actions::AUTH_MAILTO_TOKEN_KEY,
+				Utils::EncodeKeyValuesQ(array(
+					'Time' => \microtime(true),
+					'MailTo' => 'MailTo',
+					'To' => $sTo
+				))
+			);
 		}
-
 		$this->oActions->Location('./');
 		return '';
 	}
@@ -648,17 +652,19 @@ class ServiceActions
 		$this->oHttp->ServerNoCache();
 
 		\header('Content-Type: text/plain; charset=utf-8');
-		$this->oActions->Logger()->Write('Pong', \MailSo\Log\Enumerations\Type::INFO, 'PING');
+		$this->oActions->Logger()->Write('Pong', \LOG_INFO, 'PING');
 		return 'Pong';
 	}
 
+	/**
+	 * Login with the \RainLoop\API::CreateUserSsoHash() generated hash
+	 */
 	public function ServiceSso() : string
 	{
 		$this->oHttp->ServerNoCache();
 
 		$oException = null;
 		$oAccount = null;
-		$bLogout = true;
 
 		$sSsoHash = $_REQUEST['hash'] ?? '';
 		if (!empty($sSsoHash))
@@ -668,23 +674,24 @@ class ServiceActions
 			$sSsoSubData = $this->Cacher()->Get(KeyPathHelper::SsoCacherKey($sSsoHash));
 			if (!empty($sSsoSubData))
 			{
-				$mData = Utils::DecodeKeyValuesQ($sSsoSubData);
+				$aData = \SnappyMail\Crypt::DecryptFromJSON($sSsoSubData, $sSsoHash);
+
 				$this->Cacher()->Delete(KeyPathHelper::SsoCacherKey($sSsoHash));
 
-				if (\is_array($mData) && !empty($mData['Email']) && isset($mData['Password'], $mData['Time']) &&
-					(0 === $mData['Time'] || \time() - 10 < $mData['Time']))
+				if (\is_array($aData) && !empty($aData['Email']) && isset($aData['Password'], $aData['Time']) &&
+					(0 === $aData['Time'] || \time() - 10 < $aData['Time']))
 				{
-					$sEmail = \trim($mData['Email']);
-					$sPassword = $mData['Password'];
+					$sEmail = \trim($aData['Email']);
+					$sPassword = $aData['Password'];
 
-					$aAdditionalOptions = isset($mData['AdditionalOptions']) && \is_array($mData['AdditionalOptions']) &&
-						0 < \count($mData['AdditionalOptions']) ? $mData['AdditionalOptions'] : null;
+					$aAdditionalOptions = (isset($aData['AdditionalOptions']) && \is_array($aData['AdditionalOptions']))
+						? $aData['AdditionalOptions'] : [];
 
 					try
 					{
 						$oAccount = $this->oActions->LoginProcess($sEmail, $sPassword);
 
-						if ($oAccount instanceof Model\Account && $aAdditionalOptions)
+						if ($aAdditionalOptions)
 						{
 							$bNeedToSettings = false;
 
@@ -711,21 +718,16 @@ class ServiceActions
 							}
 						}
 
-						$this->oActions->AuthToken($oAccount);
-
-						$bLogout = !($oAccount instanceof Model\Account);
+						if ($oAccount instanceof Model\MainAccount) {
+							$this->oActions->SetAuthToken($oAccount);
+						}
 					}
 					catch (\Throwable $oException)
 					{
-						$this->oActions->Logger()->WriteException($oException);
+						$this->Logger()->WriteException($oException);
 					}
 				}
 			}
-		}
-
-		if ($bLogout)
-		{
-			$this->oActions->SetAuthLogoutToken();
 		}
 
 		$this->oActions->Location('./');
@@ -736,28 +738,23 @@ class ServiceActions
 	{
 		$oException = null;
 		$oAccount = null;
-		$bLogout = true;
 
 		$sEmail = $_ENV['REMOTE_USER'] ?? '';
 		$sPassword = $_ENV['REMOTE_PASSWORD'] ?? '';
 
-		if (0 < \strlen($sEmail) && 0 < \strlen(\trim($sPassword)))
+		if (\strlen($sEmail) && \strlen(\trim($sPassword)))
 		{
 			try
 			{
 				$oAccount = $this->oActions->LoginProcess($sEmail, $sPassword);
-				$this->oActions->AuthToken($oAccount);
-				$bLogout = !($oAccount instanceof Model\Account);
+				if ($oAccount instanceof Model\MainAccount) {
+					$this->oActions->SetAuthToken($oAccount);
+				}
 			}
 			catch (\Throwable $oException)
 			{
-				$this->oActions->Logger()->WriteException($oException);
+				$this->Logger()->WriteException($oException);
 			}
-		}
-
-		if ($bLogout)
-		{
-			$this->oActions->SetAuthLogoutToken();
 		}
 
 		$this->oActions->Location('./');
@@ -770,74 +767,46 @@ class ServiceActions
 
 		$oException = null;
 		$oAccount = null;
-		$bLogout = true;
 
-		switch (\strtolower($_REQUEST['Output'] ?? 'Redirect'))
-		{
-			case 'json':
+		if ($this->oActions->Config()->Get('labs', 'allow_external_login', false)) {
+			$sEmail = \trim($_POST['Email']);
+			$sPassword = $_POST['Password'];
 
-				\header('Content-Type: application/json; charset=utf-8');
-
-				$aResult = array(
-					'Action' => 'ExternalLogin',
-					'Result' => $oAccount instanceof Model\Account ? true : false,
-					'ErrorCode' => 0
-				);
-
-				if (!$aResult['Result'])
-				{
-					if ($oException instanceof Exceptions\ClientException)
-					{
-						$aResult['ErrorCode'] = $oException->getCode();
-					}
-					else
-					{
-						$aResult['ErrorCode'] = Notifications::AuthError;
-					}
+			try
+			{
+				$oAccount = $this->oActions->LoginProcess($sEmail, $sPassword);
+				if ($oAccount instanceof Model\MainAccount) {
+					$this->oActions->SetAuthToken($oAccount);
+				} else {
+					$oAccount = null;
 				}
-
-				return \MailSo\Base\Utils::Php2js($aResult, $this->Logger());
-
-			case 'redirect':
-			default:
-				$this->oActions->Location('./');
-				break;
+			}
+			catch (\Throwable $oException)
+			{
+				$this->Logger()->WriteException($oException);
+			}
 		}
 
-		return '';
-	}
+		if ('json' === \strtolower($_POST['Output'])) {
+			\header('Content-Type: application/json; charset=utf-8');
 
-	private function changeAction()
-	{
-		$this->oHttp->ServerNoCache();
+			$aResult = array(
+				'Action' => 'ExternalLogin',
+				'Result' => $oAccount ? true : false,
+				'ErrorCode' => 0
+			);
 
-		$oAccount = $this->oActions->GetAccount();
-
-		if ($oAccount && $this->oActions->GetCapa(false, Enumerations\Capa::ADDITIONAL_ACCOUNTS, $oAccount))
-		{
-			$oAccountToLogin = null;
-			$sEmail = empty($this->aPaths[2]) ? '' : \urldecode(\trim($this->aPaths[2]));
-			if (!empty($sEmail))
-			{
-				$sEmail = \MailSo\Base\Utils::IdnToAscii($sEmail);
-
-				$aAccounts = $this->oActions->GetAccounts($oAccount);
-				if (isset($aAccounts[$sEmail]))
-				{
-					$oAccountToLogin = $this->oActions->GetAccountFromCustomToken($aAccounts[$sEmail], false, false);
+			if (!$oAccount) {
+				if ($oException instanceof Exceptions\ClientException) {
+					$aResult['ErrorCode'] = $oException->getCode();
+				} else {
+					$aResult['ErrorCode'] = Notifications::AuthError;
 				}
 			}
 
-			if ($oAccountToLogin)
-			{
-				$this->oActions->AuthToken($oAccountToLogin);
-			}
+			return Utils::jsonEncode($aResult);
 		}
-	}
 
-	public function ServiceChange() : string
-	{
-		$this->changeAction();
 		$this->oActions->Location('./');
 		return '';
 	}
@@ -847,8 +816,7 @@ class ServiceActions
 	 */
 	public function ErrorTemplates(string $sTitle, string $sDesc, bool $bShowBackLink = true)
 	{
-		return strtr(file_get_contents(APP_VERSION_ROOT_PATH.'app/templates/Error.html'), array(
-			'{{BaseWebStaticPath}}' => Utils::WebStaticPath(),
+		return \strtr(\file_get_contents(APP_VERSION_ROOT_PATH.'app/templates/Error.html'), array(
 			'{{ErrorTitle}}' => $sTitle,
 			'{{ErrorHeader}}' => $sTitle,
 			'{{ErrorDesc}}' => $sDesc,
@@ -860,7 +828,7 @@ class ServiceActions
 
 	private function localError(string $sTitle, string $sDesc) : string
 	{
-		header('Content-Type: text/html; charset=utf-8');
+		\header('Content-Type: text/html; charset=utf-8');
 		return $this->ErrorTemplates($sTitle, \nl2br($sDesc));
 	}
 
@@ -870,34 +838,36 @@ class ServiceActions
 		$this->oHttp->ServerNoCache();
 
 		$sResult = 'rl.initData('
-			.\json_encode($this->oActions->AppData($bAdmin))
+			.Utils::jsonEncode($this->oActions->AppData($bAdmin))
 			.');';
 
-		$this->Logger()->Write($sResult, \MailSo\Log\Enumerations\Type::INFO, 'APPDATA');
+		$this->Logger()->Write($sResult, \LOG_INFO, 'APPDATA');
 
 		return $sResult;
 	}
 
-	public function compileTemplates(bool $bAdmin = false, bool $bJsOutput = true) : string
+	public function compileTemplates(bool $bAdmin = false) : string
 	{
 		$aTemplates = array();
 
-		Utils::CompileTemplates($aTemplates, APP_VERSION_ROOT_PATH.'app/templates/Views/Components', 'Component');
-		Utils::CompileTemplates($aTemplates, APP_VERSION_ROOT_PATH.'app/templates/Views/'.($bAdmin ? 'Admin' : 'User'));
-		Utils::CompileTemplates($aTemplates, APP_VERSION_ROOT_PATH.'app/templates/Views/Common');
+		foreach (['Components', ($bAdmin ? 'Admin' : 'User'), 'Common'] as $dir) {
+			$sNameSuffix = ('Components' === $dir) ? 'Component' : '';
+			foreach (\glob(APP_VERSION_ROOT_PATH."app/templates/Views/{$dir}/*.html") as $file) {
+				$sTemplateName = \basename($file, '.html') . $sNameSuffix;
+				$aTemplates[$sTemplateName] = $file;
+			}
+		}
 
 		$this->oActions->Plugins()->CompileTemplate($aTemplates, $bAdmin);
 
 		$sHtml = '';
-		foreach ($aTemplates as $sName => $sFile)
-		{
+		foreach ($aTemplates as $sName => $sFile) {
 			$sName = \preg_replace('/[^a-zA-Z0-9]/', '', $sName);
-			$sHtml .= '<template id="'.$sName.'">'.
-				$this->oActions->ProcessTemplate($sName, \file_get_contents($sFile)).'</template>';
+			$sHtml .= '<template id="'.$sName.'">'
+				. \preg_replace('/<(\/?)script/i', '<$1x-script', \file_get_contents($sFile))
+				. '</template>';
 		}
 
-		unset($aTemplates);
-
-		return $bJsOutput ? 'rl.TEMPLATES='.\MailSo\Base\Utils::Php2js($sHtml, $this->Logger()).';' : $sHtml;
+		return \str_replace('&nbsp;', "\xC2\xA0", $sHtml);
 	}
 }

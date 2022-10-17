@@ -1,8 +1,8 @@
 // "foreach: someExpression" is equivalent to "template: { foreach: someExpression }"
 // "foreach: { data: someExpression, afterAdd: myfn }" is equivalent to "template: { foreach: someExpression, afterAdd: myfn }"
 ko.bindingHandlers['foreach'] = {
-    makeTemplateValueAccessor: valueAccessor => {
-        return () => {
+    makeTemplateValueAccessor: valueAccessor =>
+        () => {
             var modelValue = valueAccessor(),
                 // Unwrap without setting a dependency here
                 unwrappedValue = ko.isObservable(modelValue) ? modelValue.peek() : modelValue;
@@ -18,15 +18,8 @@ ko.bindingHandlers['foreach'] = {
             return {
                 'foreach': unwrappedValue['data'],
                 'as': unwrappedValue['as'],
-                'noChildContext': unwrappedValue['noChildContext'],
-                'includeDestroyed': unwrappedValue['includeDestroyed'],
-                'afterAdd': unwrappedValue['afterAdd'],
-                'beforeRemove': unwrappedValue['beforeRemove'],
-                'afterRender': unwrappedValue['afterRender'],
-                'beforeMove': unwrappedValue['beforeMove'],
-                'afterMove': unwrappedValue['afterMove']
+                'beforeRemove': unwrappedValue['beforeRemove']
             };
-        };
     },
     'init': (element, valueAccessor) =>
         ko.bindingHandlers['template']['init'](element, ko.bindingHandlers['foreach'].makeTemplateValueAccessor(valueAccessor))

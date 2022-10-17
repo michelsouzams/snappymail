@@ -20,14 +20,19 @@
 		"NAME": "Naam",
 		"NONE": "Geen",
 		"NOT_SPAM": "Geen ongewenste e-mail",
+		"USERNAME": "Gebruikersnaam",
 		"PASSWORD": "Wachtwoord",
 		"REPLY_TO": "Antwoordadres",
 		"SAVE": "Opslaan",
+		"SAVE_CHANGES": "Wijzigingen opslaan?",
 		"SEARCH": "Zoeken",
 		"SPAM": "Ongewenste e-mail",
 		"SUBJECT": "Onderwerp",
 		"TEST": "Test",
-		"TO": "Naar"
+		"TO": "Naar",
+		"SERVER_MESSAGE": "Server bericht",
+		"YES": "Ja",
+		"NO": "Nee"
 	},
 	"LOGIN": {
 		"LABEL_LOGIN": "Inlognaam",
@@ -45,27 +50,24 @@
 	},
 	"SEARCH": {
 		"TITLE_ADV": "Geavanceerd zoeken",
-		"LABEL_ADV_TEXT": "Tekst",
-		"LABEL_ADV_HAS_ATTACHMENT": "Heeft bijlage",
-		"LABEL_ADV_HAS_ATTACHMENTS": "Heeft bijlages",
-		"LABEL_ADV_FLAGGED": "Gemarkeerd",
-		"LABEL_ADV_UNSEEN": "Ongelezen",
-		"LABEL_ADV_DATE": "Datum",
-		"LABEL_ADV_DATE_ALL": "Alles",
-		"LABEL_ADV_DATE_3_DAYS": "Tot 3 dagen oud",
-		"LABEL_ADV_DATE_7_DAYS": "Tot 1 week oud",
-		"LABEL_ADV_DATE_MONTH": "Tot 1 maand oud",
-		"LABEL_ADV_DATE_3_MONTHS": "Tot 3 maanden oud",
-		"LABEL_ADV_DATE_6_MONTHS": "Tot 6 maanden oud",
-		"LABEL_ADV_DATE_YEAR": "Tot 1 jaar oud"
-	},
-	"PREVIEW_POPUP": {
-		"FULLSCREEN": "Schakel volledig scherm in\/uit",
-		"ZOOM": "Zoom in\/uit",
-		"CLOSE": "Sluiten (Esc)",
-		"GALLERY_PREV": "Vorige (Linker Pijl toets)",
-		"GALLERY_NEXT": "Volgende (Rechter Pijl toets)",
-		"GALLERY_COUNTER": "%curr% van %total%"
+		"TEXT": "Tekst",
+		"HAS_ATTACHMENT": "Heeft bijlage(s)",
+		"FLAGGED": "Gemarkeerd",
+		"UNSEEN": "Ongelezen",
+		"DATE": "Datum",
+		"DATE_ALL": "Alles",
+		"DATE_3_DAYS": "Tot 3 dagen oud",
+		"DATE_7_DAYS": "Tot 1 week oud",
+		"DATE_MONTH": "Tot 1 maand oud",
+		"DATE_3_MONTHS": "Tot 3 maanden oud",
+		"DATE_6_MONTHS": "Tot 6 maanden oud",
+		"DATE_YEAR": "Tot 1 jaar oud",
+		"SUBFOLDERS": "Subfolders",
+		"SUBFOLDERS_NONE": "Geen",
+		"SUBFOLDERS_SUBTREE": "Alle",
+		"SUBFOLDERS_SUBTREE_ONE": "Één niveau",
+		"REPLIED": "Beantwoord",
+		"KEYWORD": "Tag"
 	},
 	"FOLDER_LIST": {
 		"BUTTON_COMPOSE": "Nieuw bericht",
@@ -97,9 +99,8 @@
 		"MENU_SELECT_UNFLAGGED": "Zonder Vlag",
 		"EMPTY_LIST": "Geen berichten",
 		"EMPTY_SEARCH_LIST": "Geen items gevonden",
-		"SEARCH_RESULT_FOR": "Zoekresultaten voor\"%SEARCH%\"",
+		"SEARCH_RESULT_FOR": "Zoekresultaten voor \"%SEARCH%\"",
 		"BACK_TO_MESSAGE_LIST": "terug naar berichtenlijst",
-		"EMPTY_SUBJECT_TEXT": "(Geen onderwerp)",
 		"PUT_MESSAGE_HERE": "Sleep bericht hier om ze te bekijken in de lijst",
 		"TODAY_AT": "vandaag om %TIME%",
 		"YESTERDAY_AT": "gisteren om %TIME%",
@@ -132,6 +133,8 @@
 		"BUTTON_THREAD_MORE": "Meer berichten",
 		"MENU_HEADERS": "Toon berichtkoppen",
 		"MENU_VIEW_ORIGINAL": "Toon origineel",
+		"HTML_VIEW": "Bekijk HTML bericht",
+		"PLAIN_VIEW": "Bekijk platte text bericht",
 		"MENU_DOWNLOAD_ORIGINAL": "Download als .eml bestand",
 		"MENU_FILTER_SIMILAR": "Filter gelijksoortige berichten",
 		"MENU_PRINT": "Afdrukken",
@@ -142,10 +145,20 @@
 		"PRINT_LABEL_ATTACHMENTS": "Bijlagen",
 		"MESSAGE_VIEW_DESC": "Selecteer een bericht in de lijst om hier te bekijken",
 		"MESSAGE_VIEW_MOVE_DESC": "Klik op de doel map in het linker paneel.",
-		"PGP_SIGNED_MESSAGE_DESC": "OpenPGP ondertekend bericht (klik om te verifiëren)",
-		"PGP_ENCRYPTED_MESSAGE_DESC": "OpenPGP versleuteld bericht (klik om te ontsleutelen)",
 		"LINK_DOWNLOAD_AS_ZIP": "Download als zip",
-		"SPAM_SCORE": "Spamscore"
+		"SPAM_SCORE": "Spamscore",
+		"HAS_VIRUS_WARNING": "WAARSCHUWING: virus gedetecteerd",
+		"TAGS": "Tags",
+		"NEW_TAG": "New tag"
+	},
+	"MESSAGE_TAGS": {
+		"$important": "Belangrijk",
+		"$todo": "Te doen",
+		"$label1": "Belangrijk",
+		"$label2": "Werk",
+		"$label3": "Persoonlijk",
+		"$label4": "Te doen",
+		"$label5": "Later"
 	},
 	"READ_RECEIPT": {
 		"SUBJECT": "Ontvangstbevestiging (weergegeven) - %SUBJECT%",
@@ -155,6 +168,17 @@
 		"SEARCHING_DESC": "Zoeken..."
 	},
 	"CONTACTS": {
+		"TAB_CONTACT": "Contact",
+		"TAB_LOCATIONS": "Locaties",
+		"TAB_BUSINESS": "Bedrijf",
+		"LABEL_ORGANIZATION": "Organisatie",
+		"LABEL_DEPARTMENT": "Afdeling",
+		"LABEL_TITLE": "Titel",
+		"TAB_CRYPTO": "Crypto",
+		"ASK": "Vraag",
+		"NEVER": "Nooit",
+		"ALWAYS": "Altijd",
+		"ALWAYS_IF_POSSIBLE": "Altijd indien mogelijk",
 		"BUTTON_ADD_CONTACT": "Contactpersoon Toevoegen",
 		"BUTTON_CREATE_CONTACT": "Toevoegen",
 		"BUTTON_UPDATE_CONTACT": "Bijwerken",
@@ -166,21 +190,15 @@
 		"EMPTY_SEARCH": "Geen items gevonden",
 		"CLEAR_SEARCH": "Wis zoekopdracht",
 		"CONTACT_VIEW_DESC": "Selecteer een contactpersoon in de lijst om hier te bekijken",
-		"LABEL_PHONE": "Telefoon",
-		"LABEL_WEB": "Web",
 		"LABEL_BIRTHDAY": "Geboortedatum",
-		"LINK_ADD_EMAIL": "E-mail adres toevoegen",
-		"LINK_ADD_PHONE": "Telefoonnummer toevoegen",
-		"LINK_BIRTHDAY": "Geboortedatum",
 		"PLACEHOLDER_ENTER_DISPLAY_NAME": "Weergeven als",
 		"PLACEHOLDER_ENTER_LAST_NAME": "Achternaam",
 		"PLACEHOLDER_ENTER_FIRST_NAME": "Voornaam",
 		"PLACEHOLDER_ENTER_NICK_NAME": "Bijnaam",
 		"LABEL_READ_ONLY": "Alleen lezen",
-		"LABEL_SHARE": "Deel",
 		"ADD_MENU_LABEL": "Toevoegen",
 		"ADD_MENU_NICKNAME": "Bijnaam",
-		"ADD_MENU_NOTES": "Notities",
+		"ADD_MENU_NOTE": "Notities",
 		"ADD_MENU_PHONE": "Telefoonnummer",
 		"ADD_MENU_URL": "Webpagina",
 		"ADD_MENU_ADDRESS": "Adres",
@@ -207,12 +225,9 @@
 		"ATTACHMENTS_UPLOAD_ERROR_DESC": "Toevoegen van bijlage(n) is nog niet gereed",
 		"BUTTON_REQUEST_READ_RECEIPT": "Leesbevestiging vragen",
 		"BUTTON_MARK_AS_IMPORTANT": "Markeer als belangrijk",
-		"BUTTON_OPEN_PGP": "OpenPGP (alleen bij Platte Tekst)",
 		"BUTTON_REQUEST_DSN": "Ontvangstbevestiging vragen"
 	},
 	"POPUPS_ASK": {
-		"BUTTON_YES": "Ja",
-		"BUTTON_NO": "Nee",
 		"DESC_WANT_CLOSE_THIS_WINDOW": "Weet u zeker dat u dit venster wilt sluiten?",
 		"DESC_WANT_DELETE_MESSAGES": "Weet u zeker dat u dit\/deze bericht\/berichten wilt verwijderen?"
 	},
@@ -241,35 +256,28 @@
 	"POPUPS_CLEAR_FOLDER": {
 		"TITLE_CLEAR_FOLDER": "Alle inhoud van deze map verwijderen?",
 		"DANGER_DESC_WARNING": "Opgelet!",
-		"DANGER_DESC_HTML_1": "Deze actie verwijdert alle e-mails in de map <strong>%FOLDER%<\/strong>!",
+		"DANGER_DESC_HTML_1": "Deze actie verwijdert alle e-mails uit de map '<strong>%FOLDER%<\/strong>'!",
 		"DANGER_DESC_HTML_2": "Eens in gang gezet kan het proces niet geannuleerd worden!",
 		"TITLE_CLEARING_PROCESS": "Folder aan het leegmaken..."
 	},
-	"POPUPS_IMPORT_OPEN_PGP_KEY": {
-		"TITLE_IMPORT_OPEN_PGP_KEY": "Importeer OpenPGP sleutel",
-		"BUTTON_IMPORT_OPEN_PGP_KEY": "Importeer"
-	},
-	"POPUPS_VIEW_OPEN_PGP_KEY": {
-		"TITLE_VIEW_OPEN_PGP_KEY": "Bekijk OpenPGP sleutel",
-		"BUTTON_SELECT": "Selecteer"
-	},
-	"POPUPS_GENERATE_OPEN_PGP_KEYS": {
-		"TITLE_GENERATE_OPEN_PGP_KEYS": "Genereer OpenPGP sleutels",
-		"LABEL_KEY_BIT_LENGTH": "Sleutel lengte",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "Genereer"
-	},
-	"POPUPS_COMPOSE_OPEN_PGP": {
-		"TITLE_COMPOSE_OPEN_PGP": "OpenPGP ondertekenen\/versleutelen",
+	"OPENPGP": {
+		"POPUP_IMPORT_TITLE": "Importeer OpenPGP sleutel",
+		"POPUP_IMPORT_BUTTON": "Importeer",
+		"POPUP_VIEW_TITLE": "Bekijk OpenPGP sleutel",
+		"POPUP_VIEW_BUTTON": "Selecteer",
+		"POPUP_GENERATE_TITLE": "Genereer OpenPGP sleutels",
+		"POPUP_GENERATE_BUTTON": "Genereer",
+		"LABEL_KEY_TYPE": "Type",
 		"LABEL_SIGN": "Ondertekenen",
 		"LABEL_ENCRYPT": "Versleutelen",
-		"BUTTON_SIGN": "Ondertekenen",
-		"BUTTON_ENCRYPT": "Versleutelen",
-		"BUTTON_SIGN_AND_ENCRYPT": "Ondertekenen en versleutelen"
-	},
-	"POPUPS_MESSAGE_OPEN_PGP": {
-		"TITLE_MESSAGE_OPEN_PGP": "OpenPGP Decrypt",
-		"LABEL_KEY": "Privé sleutel",
-		"BUTTON_DECRYPT": "Decrypt"
+		"BUTTON_DECRYPT": "Decrypt",
+		"BUTTON_VERIFY": "Verify",
+		"SIGNED_MESSAGE": "OpenPGP ondertekend bericht",
+		"ENCRYPTED_MESSAGE": "OpenPGP versleuteld bericht",
+		"STORE_IN_GNUPG": "Store on server in GnuPG",
+		"BACKUP_ON_SERVER": "Store (encrypted) on server",
+		"GOOD_SIGNATURE": "Juiste handtekening van %USER%",
+		"ERROR": "OpenPGP foutmelding: %ERROR%"
 	},
 	"POPUPS_FILTER": {
 		"TITLE_CREATE_FILTER": "Filter toevoegen",
@@ -329,10 +337,8 @@
 		"NOTIFICATION_ARCHIVE": "U heeft nog geen \"Archief\" map aangeduid waar de gearchiveerde berichten geplaatst worden."
 	},
 	"TITLES": {
-		"LOGIN": "Inloggen",
 		"MAILBOX": "Mailbox",
-		"SETTINGS": "Instellingen",
-		"COMPOSE": "Opstellen"
+		"SETTINGS": "Instellingen"
 	},
 	"UPLOAD": {
 		"ERROR_FILE_IS_TOO_BIG": "Bestand is te groot",
@@ -344,7 +350,8 @@
 		"ERROR_UNKNOWN": "Er is een onbekende fout opgetreden"
 	},
 	"EDITOR": {
-		"TEXT_SWITCHER_PLAINT_TEXT": "HTML <-> TEKST"
+		"TEXT_SWITCHER_PLAIN_TEXT": "HTML <-> TEKST",
+		"TEXT_SWITCHER_SOURCE": "HTML <-> BRONCODE"
 	},
 	"SETTINGS_LABELS": {
 		"LABEL_PERSONAL_NAME": "Persoonlijk",
@@ -352,21 +359,20 @@
 		"LABEL_CONTACTS_NAME": "Contactpersonen",
 		"LABEL_FOLDERS_NAME": "Mappen",
 		"LABEL_ACCOUNTS_NAME": "Accounts",
-		"LABEL_IDENTITIES_NAME": "Identiteiten",
 		"LABEL_FILTERS_NAME": "Filters",
-		"LABEL_TEMPLATES_NAME": "Templates",
 		"LABEL_SECURITY_NAME": "Beveiliging",
 		"LABEL_THEMES_NAME": "Thema's"
 	},
 	"SETTINGS_FILTERS": {
 		"LEGEND_FILTERS": "Filters",
+		"SIMPLE": "Simpel",
+		"ADVANCED": "Geavanceerd",
 		"BUTTON_ADD_SCRIPT": "Script toevoegen",
 		"SUBNAME_MOVE_TO": "Verplaats naar map \"%FOLDER%\"",
 		"SUBNAME_FORWARD_TO": "Doorsturen naar \"%EMAIL%\"",
 		"SUBNAME_REJECT": "Afwijzen",
 		"SUBNAME_VACATION_MESSAGE": "Afwezigheidsbericht",
-		"SUBNAME_DISCARD": "Gooi weg",
-		"LOADING_PROCESS": "Bezig met updaten van de filter lijst"
+		"SUBNAME_DISCARD": "Gooi weg"
 	},
 	"SETTINGS_SECURITY": {
 		"LEGEND_SECURITY": "Beveiliging",
@@ -377,29 +383,34 @@
 	},
 	"SETTINGS_GENERAL": {
 		"LEGEND_GENERAL": "Algemeen",
-		"LABEL_LANGUAGE": "Taal",
-		"LABEL_IDENTITY": "Identiteit",
-		"LABEL_LAYOUT": "Indeling",
-		"LABEL_LAYOUT_NO_SPLIT": "Geen splitsing",
-		"LABEL_LAYOUT_VERTICAL_SPLIT": "Verticale splitsing",
-		"LABEL_LAYOUT_HORIZONTAL_SPLIT": "Horizontale splitsing",
-		"LABEL_EDITOR": "Standaard tekst editor",
-		"LABEL_EDITOR_HTML": "HTML",
-		"LABEL_EDITOR_PLAIN": "Platte tekst",
-		"LABEL_EDITOR_HTML_FORCED": "Html (geforceerd)",
-		"LABEL_EDITOR_PLAIN_FORCED": "Platte tekst (geforceerd)",
-		"LABEL_VIEW_OPTIONS": "Bekijk opties",
-		"LABEL_USE_PREVIEW_PANE": "Toon leesvenster",
-		"LABEL_USE_CHECKBOXES_IN_LIST": "Toon selectievakjes in de lijst",
-		"LABEL_USE_THREADS": "Groepeer berichten",
-		"LABEL_REPLY_SAME_FOLDER": "Plaats antwoorden in de map van het originele bericht",
-		"LABEL_SHOW_IMAGES": "Afbeeldingen altijd weergeven in het bericht",
-		"LABEL_REMOVE_COLORS": "Verwijder achtergrond- en tekstkleuren uit het bericht",
-		"LABEL_MESSAGE_PER_PAGE": "Berichten op pagina",
-		"LABEL_NOTIFICATIONS": "Notificaties",
-		"LABEL_SOUND_NOTIFICATION": "Notificatie geluid",
-		"LABEL_CHROME_NOTIFICATION_DESC": "Toon nieuwe berichten popup",
-		"LABEL_CHROME_NOTIFICATION_DESC_DENIED": "(Geblokkeerd door de browser)"
+		"LANGUAGE": "Taal",
+		"IDENTITY": "Identiteit",
+		"LAYOUT": "Indeling",
+		"LAYOUT_NO_SPLIT": "Geen splitsing",
+		"LAYOUT_VERTICAL_SPLIT": "Verticale splitsing",
+		"LAYOUT_HORIZONTAL_SPLIT": "Horizontale splitsing",
+		"EDITOR": "Standaard tekst editor",
+		"EDITOR_HTML": "HTML",
+		"EDITOR_PLAIN": "Platte tekst",
+		"VIEW_OPTIONS": "Bekijk opties",
+		"USE_PREVIEW_PANE": "Toon leesvenster",
+		"HIDE_DELETED_MESSAGES": "Berichten verbergen die zijn gemarkeerd voor verwijdering",
+		"USE_CHECKBOXES_IN_LIST": "Toon selectievakjes in de lijst",
+		"USE_THREADS": "Groepeer berichten",
+		"REPLY_SAME_FOLDER": "Plaats antwoorden in de map van het originele bericht",
+		"SHOW_IMAGES": "Afbeeldingen altijd weergeven in het bericht",
+		"PREFER_HTML": "Prefer HTML to plain text",
+		"PREFER_HTML_INFO": "Messages sometimes come in both formats. This option controls whether you want the HTML part or the plain text part to be displayed.",
+		"REMOVE_COLORS": "Verwijder achtergrond- en tekstkleuren uit het bericht",
+		"MESSAGE_PER_PAGE": "Berichten op pagina",
+		"MARK_MESSAGE_READ_AFTER": "Bericht markeren als gelezen na",
+		"MSG_DEFAULT_ACTION": "Default action",
+		"SECONDS": "seconden",
+		"NOTIFICATIONS": "Notificaties",
+		"SOUND_NOTIFICATION": "Notificatie geluid",
+		"CHROME_NOTIFICATION_DESC": "Toon nieuwe berichten popup",
+		"CHROME_NOTIFICATION_DESC_DENIED": "(Geblokkeerd door de browser)",
+		"LIST_INLINE_ATTACHMENTS": "Toon inline bijlagen in lijst"
 	},
 	"SETTINGS_CONTACTS": {
 		"LABEL_CONTACTS_AUTOSAVE": "Automatisch ontvangers toevoegen aan uw adresboek",
@@ -407,7 +418,8 @@
 		"LABEL_CONTACTS_SYNC_ENABLE": "Server synchronisatie inschakelen",
 		"LABEL_CONTACTS_SYNC_SERVER": "Server",
 		"LABEL_CONTACTS_SYNC_AB_URL": "Adresboek URL",
-		"LABEL_CONTACTS_SYNC_USER": "Gebruikersnaam"
+		"LABEL_CONTACTS_SYNC_USER": "Gebruikersnaam",
+		"SYNC_READ": "Read only"
 	},
 	"SETTINGS_THEMES": {
 		"LEGEND_THEMES": "Thema's",
@@ -432,11 +444,19 @@
 		"DELETING_PROCESS": "Map aan het wissen",
 		"RENAMING_PROCESS": "Map hernoemen",
 		"TO_MANY_FOLDERS_DESC_1": "U heeft te veel mappen!",
-		"TO_MANY_FOLDERS_DESC_2": "Er worden er maar een deel weergegeven om prestatieproblemen te voorkomen.",
+		"TO_MANY_FOLDERS_DESC_2": "Er wordt maar een deel weergegeven om prestatieproblemen te voorkomen.",
 		"HELP_DELETE_FOLDER": "Verwijder map",
 		"HELP_SHOW_HIDE_FOLDER": "Toon\/verberg map",
 		"HELP_CHECK_FOR_NEW_MESSAGES": "Controleer wel of niet op nieuwe berichten",
-		"HIDE_UNSUBSCRIBED": "Verberg niet geabonneerde mappen"
+		"HIDE_UNSUBSCRIBED": "Verberg niet geabonneerde mappen",
+		"UNHIDE_KOLAB_FOLDERS": "Toon Kolab mappen",
+		"TYPE_CALENDAR": "Kalender",
+		"TYPE_CONFIGURATION": "Configuratie",
+		"TYPE_CONTACTS": "Contacten",
+		"TYPE_FILES": "Bestanden",
+		"TYPE_JOURNAL": "Journaal",
+		"TYPE_NOTES": "Opmerkingen",
+		"TYPE_TASKS": "Taken"
 	},
 	"SETTINGS_ACCOUNTS": {
 		"LEGEND_ACCOUNTS": "Account Lijst",
@@ -447,13 +467,13 @@
 		"LOADING_PROCESS": "Account lijst aan het bijwerken",
 		"DEFAULT_IDENTITY_LABEL": "standaard"
 	},
-	"SETTINGS_OPEN_PGP": {
-		"BUTTON_ADD_OPEN_PGP_KEY": "Importeer OpenPGP sleutel",
-		"BUTTON_GENERATE_OPEN_PGP_KEYS": "Genereer OpenPGP sleutels",
+	"SETTINGS_OPENPGP": {
+		"BUTTON_IMPORT_KEY": "Importeer sleutel",
+		"BUTTON_GENERATE_KEY_PAIR": "Genereer sleutels",
 		"TITLE_PRIVATE": "Privé sleutel",
 		"TITLE_PUBLIC": "Publieke sleutel",
-		"GENERATE_ONLY_HTTPS": "Alleen HTTPS",
-		"LABEL_ALLOW_DRAFT_AUTOSAVE": "Automatically save draft"
+		"LABEL_ALLOW_DRAFT_AUTOSAVE": "Automatisch opslaan as concept",
+		"GET_MAILVELOPE": "Verkrijg Mailvelope browser add-on."
 	},
 	"SHORTCUTS_HELP": {
 		"LEGEND_SHORTCUTS_HELP": "Hulp bij toetsenbord sneltoetsen",
@@ -483,36 +503,24 @@
 		"LABEL_BLOCKQUOTES_TOGGLE": "Schakel blok citaten aan of uit",
 		"LABEL_THREAD_NEXT": "Volgende bericht in groep",
 		"LABEL_THREAD_PREV": "Vorige bericht in groep",
-		"LABEL_PRINT": "Afdrukken",
 		"LABEL_EXIT_FULLSCREEN": "Volledig scherm sluiten",
 		"LABEL_CLOSE_MESSAGE": "Bericht sluiten (leesvenster uitgeschakeld)",
 		"LABEL_SWITCH_TO_LIST": "Schakel focus terug naar berichtenlijst",
 		"LABEL_OPEN_COMPOSE_POPUP": "Open nieuw bericht venster",
-		"LABEL_MINIMIZE_COMPOSE_POPUP": "Minimize compose popup",
+		"LABEL_MINIMIZE_COMPOSE_POPUP": "Minimaliseer nieuw bericht venster",
 		"LABEL_OPEN_IDENTITIES_DROPDOWN": "Open identiteiten menu",
 		"LABEL_SAVE_MESSAGE": "Concept opslaan",
 		"LABEL_SEND_MESSAGE": "Bericht versturen",
 		"LABEL_CLOSE_COMPOSE": "Nieuw bericht venster sluiten"
 	},
-	"PGP_NOTIFICATIONS": {
-		"NO_PUBLIC_KEYS_FOUND": "Geen publieke sleutels gevonden",
-		"NO_PUBLIC_KEYS_FOUND_FOR": "Geen publieke sleutels gevonden voor e-mail adres \"%EMAIL%\"",
-		"NO_PRIVATE_KEY_FOUND": "Geen privé sleutel gevonden",
-		"NO_PRIVATE_KEY_FOUND_FOR": "Geen privé sleutel gevonden voor e-mail adres \"%EMAIL%\"",
-		"ADD_A_PUBLICK_KEY": "Voeg een publieke sleutel toe",
-		"SELECT_A_PRIVATE_KEY": "Selecteer een privé sleutel",
-		"UNVERIFIRED_SIGNATURE": "Ongeverifieerde handtekening",
-		"DECRYPTION_ERROR": "OpenPGP decryptie fout",
-		"GOOD_SIGNATURE": "Juiste handtekening van %USER%",
-		"PGP_ERROR": "OpenPGP foutmelding: %ERROR%",
-		"SPECIFY_FROM_EMAIL": "Geef a.u.b. een VAN e-mail adres op",
-		"SPECIFY_AT_LEAST_ONE_RECIPIENT": "Geef a.u.b. minimaal één ontvanger op"
-	},
 	"NOTIFICATIONS": {
+		"REQUEST_ERROR": "Verzoek mislukt",
+		"REQUEST_ABORTED": "Verzoek is afgebroken",
+		"REQUEST_TIMEOUT": "Verzoek time-out",
 		"INVALID_TOKEN": "Ongeldige token",
 		"AUTH_ERROR": "Authenticatie mislukt",
-		"ACCESS_ERROR": "Toegangsfout",
 		"CONNECTION_ERROR": "Kan geen verbinding maken met de Server",
+		"DOMAIN_ALREADY_EXISTS": "Domein bestaat reeds",
 		"DOMAIN_NOT_ALLOWED": "Domein is niet toegestaan",
 		"ACCOUNT_NOT_ALLOWED": "Account is niet toegestaan",
 		"CONTACTS_SYNC_ERROR": "Contactpersonen synchronisatie fout",
@@ -535,17 +543,11 @@
 		"CANT_DELETE_NON_EMPTY_FOLDER": "Een niet lege map kan niet verwijderd worden",
 		"CANT_SUBSCRIBE_FOLDER": "Kan niet abonneren op folder",
 		"CANT_UNSUBSCRIBE_FOLDER": "Kan abonnement op folder niet opzeggen",
-		"CANT_SAVE_SETTINGS": "Instellingen kunnen niet opgeslagen worden",
-		"CANT_SAVE_PLUGIN_SETTINGS": "Instellingen kunnen niet opgeslagen worden",
-		"DOMAIN_ALREADY_EXISTS": "Domein bestaat reeds",
-		"CANT_INSTALL_PACKAGE": "Package installeren mislukt",
-		"CANT_DELETE_PACKAGE": "Package verwijderen mislukt",
-		"INVALID_PLUGIN_PACKAGE": "Ongeldig plug-in package",
-		"UNSUPPORTED_PLUGIN_PACKAGE": "Niet ondersteund plug-in package",
 		"DEMO_SEND_MESSAGE_ERROR": "Vanwege beveiliging is het niet toegestaan dat deze demo account e-mail naar extern verzend!",
 		"DEMO_ACCOUNT_ERROR": "Vanwege beveiliging is deze actie niet toegestaan voor deze account!",
 		"ACCOUNT_ALREADY_EXISTS": "Account bestaat al",
 		"ACCOUNT_DOES_NOT_EXIST": "Account bestaat niet.",
+		"ACCOUNT_SWITCH_FAILED": "Overschakelen naar account \"%EMAIL%\" mislukt",
 		"MAIL_SERVER_ERROR": "Fout bij toegang tot de mail Server",
 		"INVALID_INPUT_ARGUMENT": "Ongeldig invoer argument",
 		"UNKNOWN_ERROR": "Er is een onbekende fout opgetreden"

@@ -1,6 +1,5 @@
-import { Scope } from 'Common/Enums';
-import { keyScope, leftPanelDisabled, SettingsGet } from 'Common/Globals';
-import { addObservablesTo } from 'Common/Utils';
+import { keyScope, leftPanelDisabled, SettingsGet, elementById } from 'Common/Globals';
+import { addObservablesTo } from 'External/ko';
 import { ThemeStore } from 'Stores/Theme';
 
 export const AppUserStore = {
@@ -8,20 +7,18 @@ export const AppUserStore = {
 };
 
 addObservablesTo(AppUserStore, {
-	focusedState: Scope.None,
+	focusedState: 'none',
 
-	threadsAllowed: false,
-
-	composeInEdit: false
+	threadsAllowed: false
 });
 
 AppUserStore.focusedState.subscribe(value => {
-	switch (value) {
-		case Scope.MessageList:
-		case Scope.MessageView:
-		case Scope.FolderList:
+	['FolderList','MessageList','MessageView'].forEach(name => {
+		if (name === value) {
 			keyScope(value);
-			ThemeStore.isMobile() && leftPanelDisabled(Scope.FolderList !== value);
-			break;
-	}
+			ThemeStore.isMobile() && leftPanelDisabled('FolderList' !== value);
+		}
+		let dom = elementById('V-Mail'+name);
+		dom?.classList.toggle('focused', name === value);
+	});
 });

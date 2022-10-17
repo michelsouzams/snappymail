@@ -1,7 +1,6 @@
 import ko from 'ko';
 
 import {
-	Scope,
 	Notification,
 	UploadErrorCode
 } from 'Common/Enums';
@@ -12,16 +11,17 @@ import {
 	SetSystemFoldersNotification
 } from 'Common/EnumsUser';
 
-import { inFocus, pInt, isArray, arrayLength } from 'Common/Utils';
-import { delegateRunOnDestroy } from 'Common/UtilsUser';
-import { encodeHtml, HtmlEditor } from 'Common/Html';
+import { pInt, isArray, arrayLength, forEachObjectEntry } from 'Common/Utils';
+import { encodeHtml, HtmlEditor, htmlToPlain } from 'Common/Html';
+import { koArrayWithDestroy } from 'External/ko';
 
 import { UNUSED_OPTION_VALUE } from 'Common/Consts';
+import { folderInformation, messagesDeleteHelper } from 'Common/Folders';
 import { serverRequest } from 'Common/Links';
-import { i18n, getNotification, getUploadErrorDescByCode } from 'Common/Translator';
-import { timestampToString } from 'Common/Momentor';
+import { i18n, getNotification, getUploadErrorDescByCode, timestampToString } from 'Common/Translator';
 import { MessageFlagsCache, setFolderHash } from 'Common/Cache';
-import { doc, Settings, SettingsGet } from 'Common/Globals';
+import { Settings, SettingsCapa, SettingsGet, elementById, addShortcut, createElement } from 'Common/Globals';
+//import { exitFullscreen, isFullscreen, toggleFullscreen } from 'Common/Fullscreen';
 
 import { AppUserStore } from 'Stores/User/App';
 import { SettingsUserStore } from 'Stores/User/Settings';
@@ -29,23 +29,84 @@ import { IdentityUserStore } from 'Stores/User/Identity';
 import { AccountUserStore } from 'Stores/User/Account';
 import { FolderUserStore } from 'Stores/User/Folder';
 import { PgpUserStore } from 'Stores/User/Pgp';
+import { OpenPGPUserStore } from 'Stores/User/OpenPGP';
+import { GnuPGUserStore } from 'Stores/User/GnuPG';
 import { MessageUserStore } from 'Stores/User/Message';
+import { MessagelistUserStore } from 'Stores/User/Messagelist';
 
 import Remote from 'Remote/User/Fetch';
 
 import { ComposeAttachmentModel } from 'Model/ComposeAttachment';
+import { EmailModel } from 'Model/Email';
 
-import { decorateKoCommands, isPopupVisible, showScreenPopup, hideScreenPopup } from 'Knoin/Knoin';
+import { decorateKoCommands, showScreenPopup } from 'Knoin/Knoin';
 import { AbstractViewPopup } from 'Knoin/AbstractViews';
 
 import { FolderSystemPopupView } from 'View/Popup/FolderSystem';
 import { AskPopupView } from 'View/Popup/Ask';
 import { ContactsPopupView } from 'View/Popup/Contacts';
-import { ComposeOpenPgpPopupView } from 'View/Popup/ComposeOpenPgp';
-
+/*
 import { ThemeStore } from 'Stores/Theme';
 
+let alreadyFullscreen;
+*/
+let oLastMessage;
+
 const
+	ScopeCompose = 'Compose',
+
+	tpl = createElement('template'),
+
+	base64_encode = text => btoa(unescape(encodeURIComponent(text))).match(/.{1,76}/g).join('\r\n'),
+
+	email = new EmailModel(),
+	getEmail = value => {
+		email.clear();
+		email.parse(value.trim());
+		return email.email || false;
+	},
+
+	/**
+	 * @param {Array} aList
+	 * @param {boolean} bFriendly
+	 * @returns {string}
+	 */
+	emailArrayToStringLineHelper = (aList, bFriendly) =>
+		aList.map(item => item.toLine(bFriendly)).join(', '),
+
+	reloadDraftFolder = () => {
+		const draftsFolder = FolderUserStore.draftsFolder();
+		if (draftsFolder && UNUSED_OPTION_VALUE !== draftsFolder) {
+			setFolderHash(draftsFolder, '');
+			if (FolderUserStore.currentFolderFullName() === draftsFolder) {
+				MessagelistUserStore.reload(true);
+			} else {
+				folderInformation(draftsFolder);
+			}
+		}
+	},
+
+	findIdentity = addresses => {
+		addresses = addresses.map(item => item.email);
+		return IdentityUserStore.find(item => addresses.includes(item.email()));
+	},
+
+	/**
+	 * @param {Function} fKoValue
+	 * @param {Array} emails
+	 */
+	addEmailsTo = (fKoValue, emails) => {
+		if (arrayLength(emails)) {
+			const value = fKoValue().trim(),
+				values = emails.map(item => item ? item.toLine() : null)
+					.validUnique();
+
+			fKoValue(value + (value ? ', ' :  '') + values.join(', ').trim());
+		}
+	},
+
+	isPlainEditor = () => EditorDefaultType.Plain === SettingsUserStore.editorDefaultType(),
+
 	/**
 	 * @param {string} prefix
 	 * @param {string} subject
@@ -96,13 +157,40 @@ ko.extenders.toggleSubscribe = (target, options) => {
 	return target;
 };
 
-class ComposePopupView extends AbstractViewPopup {
+class MimePart {
+	constructor() {
+		this.headers = {};
+		this.body = '';
+		this.boundary = '';
+		this.children = [];
+	}
+
+	toString() {
+		const hasSub = this.children.length,
+			boundary = this.boundary || (this.boundary = 'part' + Jua.randomId()),
+			headers = this.headers;
+		if (hasSub) {
+			headers['Content-Type'] += `; boundary="${boundary}"`;
+		}
+		let result = Object.entries(headers).map(([key, value]) => `${key}: ${value}`).join('\r\n') + '\r\n';
+		if (this.body) {
+			result += '\r\n' + this.body.replace(/\r?\n/g, '\r\n');
+		}
+		if (hasSub) {
+			this.children.forEach(part => result += '\r\n--' + boundary + '\r\n' + part);
+			result += '\r\n--' + boundary + '--\r\n';
+		}
+		return result;
+	}
+}
+
+export class ComposePopupView extends AbstractViewPopup {
 	constructor() {
 		super('Compose');
 
 		const fEmailOutInHelper = (context, identity, name, isIn) => {
-			if (identity && context && identity[name]() && (isIn ? true : context[name]())) {
-				const identityEmail = identity[name]();
+			const identityEmail = context && identity?.[name]();
+			if (identityEmail && (isIn ? true : context[name]())) {
 				let list = context[name]().trim().split(',');
 
 				list = list.filter(email => {
@@ -110,15 +198,12 @@ class ComposePopupView extends AbstractViewPopup {
 					return email && identityEmail.trim() !== email;
 				});
 
-				if (isIn) {
-					list.push(identityEmail);
-				}
+				isIn && list.push(identityEmail);
 
 				context[name](list.join(','));
 			}
 		};
 
-		this.oLastMessage = null;
 		this.oEditor = null;
 		this.aDraftInfo = null;
 		this.sInReplyTo = '';
@@ -128,17 +213,12 @@ class ComposePopupView extends AbstractViewPopup {
 		this.sLastFocusedField = 'to';
 
 		this.allowContacts = AppUserStore.allowContacts();
-
-		this.bSkipNextHide = false;
-		this.editorDefaultType = SettingsUserStore.editorDefaultType;
-
-		this.capaOpenPGP = PgpUserStore.capaOpenPGP;
-
-		this.identities = IdentityUserStore;
+		this.allowIdentities = SettingsCapa('Identities');
 
 		this.addObservables({
 			identitiesDropdownTrigger: false,
 
+			from: '',
 			to: '',
 			cc: '',
 			bcc: '',
@@ -170,23 +250,25 @@ class ComposePopupView extends AbstractViewPopup {
 			showBcc: false,
 			showReplyTo: false,
 
-			draftFolder: '',
-			draftUid: '',
+			pgpSign: false,
+			canPgpSign: false,
+			pgpEncrypt: false,
+			canPgpEncrypt: false,
+			canMailvelope: false,
+
+			draftsFolder: '',
+			draftUid: 0,
 			sending: false,
 			saving: false,
 
-			attachmentsPlace: false,
+			viewArea: 'body',
 
-			composeUploaderButton: null,
-			composeUploaderDropPlace: null,
-			dragAndDropEnabled: false,
 			attacheMultipleAllowed: false,
 			addAttachmentEnabled: false,
 
-			// div.textAreaParent
-			composeEditorArea: null,
+			editorArea: null, // initDom
 
-			currentIdentity: this.identities()[0] ? this.identities()[0] : null
+			currentIdentity: IdentityUserStore()[0]
 		});
 
 		// this.to.subscribe((v) => console.log(v));
@@ -199,7 +281,7 @@ class ComposePopupView extends AbstractViewPopup {
 		this.bcc.focused = ko.observable(false);
 		this.bcc.focused.subscribe(value => value && (this.sLastFocusedField = 'bcc'));
 
-		this.attachments = ko.observableArray();
+		this.attachments = koArrayWithDestroy();
 
 		this.dragAndDropOver = ko.observable(false).extend({ debounce: 1 });
 		this.dragAndDropVisible = ko.observable(false).extend({ debounce: 1 });
@@ -218,9 +300,7 @@ class ComposePopupView extends AbstractViewPopup {
 			]
 		});
 
-		this.bDisabeCloseOnEsc = true;
-
-		this.tryToClosePopup = this.tryToClosePopup.debounce(200);
+		this.tryToClose = this.tryToClose.debounce(200);
 
 		this.iTimer = 0;
 
@@ -247,12 +327,12 @@ class ComposePopupView extends AbstractViewPopup {
 			},
 
 			attachmentsInProcess: () => this.attachments.filter(item => item && !item.complete()),
-			attachmentsInError: () => this.attachments.filter(item => item && item.error()),
+			attachmentsInError: () => this.attachments.filter(item => item?.error()),
 
 			attachmentsCount: () => this.attachments.length,
 			attachmentsInErrorCount: () => this.attachmentsInError.length,
 			attachmentsInProcessCount: () => this.attachmentsInProcess.length,
-			isDraftFolderMessage: () => this.draftFolder() && this.draftUid(),
+			isDraftFolderMessage: () => this.draftsFolder() && this.draftUid(),
 
 			identitiesOptions: () =>
 				IdentityUserStore.map(item => ({
@@ -261,13 +341,7 @@ class ComposePopupView extends AbstractViewPopup {
 					optText: item.formattedName()
 				})),
 
-			currentIdentityView: () => {
-				const item = this.currentIdentity();
-				return item ? item.formattedName() : 'unknown';
-			},
-
 			canBeSentOrSaved: () => !this.sending() && !this.saving()
-
 		});
 
 		this.addSubscribables({
@@ -277,16 +351,32 @@ class ComposePopupView extends AbstractViewPopup {
 
 			sendSuccessButSaveError: value => !value && this.savedErrorDesc(''),
 
+			currentIdentity: value => value && this.from(value.formattedName()),
+
+			from: value => {
+				this.canPgpSign(false);
+				value = getEmail(value);
+				value && PgpUserStore.getKeyForSigning(value).then(result => {
+					console.log({
+						email: value,
+						canPgpSign:result
+					});
+					this.canPgpSign(result)
+				});
+			},
+
 			cc: value => {
 				if (false === this.showCc() && value.length) {
 					this.showCc(true);
 				}
+				this.initPgpEncrypt();
 			},
 
 			bcc: value => {
 				if (false === this.showBcc() && value.length) {
 					this.showBcc(true);
 				}
+				this.initPgpEncrypt();
 			},
 
 			replyTo: value => {
@@ -305,6 +395,7 @@ class ComposePopupView extends AbstractViewPopup {
 				if (this.emptyToError() && value.length) {
 					this.emptyToError(false);
 				}
+				this.initPgpEncrypt();
 			},
 
 			attachmentsInProcess: value => {
@@ -314,53 +405,15 @@ class ComposePopupView extends AbstractViewPopup {
 			}
 		});
 
-		this.resizeObserver = new ResizeObserver(this.resizerTrigger.throttle(50).bind(this));
-
 		decorateKoCommands(this, {
 			sendCommand: self => self.canBeSentOrSaved(),
-				saveCommand: self => self.canBeSentOrSaved(),
-				deleteCommand: self => self.isDraftFolderMessage(),
-				skipCommand: self => self.canBeSentOrSaved(),
-				contactsCommand: self => self.allowContacts
+			saveCommand: self => self.canBeSentOrSaved(),
+			deleteCommand: self => self.isDraftFolderMessage(),
+			skipCommand: self => self.canBeSentOrSaved(),
+			contactsCommand: self => self.allowContacts
 		});
-	}
 
-	getMessageRequestParams(sSaveFolder)
-	{
-		let TextIsHtml = this.oEditor.isHtml() ? 1 : 0,
-			Text = this.oEditor.getData(true);
-		if (TextIsHtml) {
-			let l;
-			do {
-				l = Text.length;
-				Text = Text
-					// Remove Microsoft Office styling
-					.replace(/(<[^>]+[;"'])\s*mso-[a-z-]+\s*:[^;"']+/gi, '$1')
-					// Remove hubspot data-hs- attributes
-					.replace(/(<[^>]+)\s+data-hs-[a-z-]+=("[^"]+"|'[^']+')/gi, '$1');
-			} while (l != Text.length)
-		}
-		return {
-			IdentityID: this.currentIdentity() ? this.currentIdentity().id() : '',
-			MessageFolder: this.draftFolder(),
-			MessageUid: this.draftUid(),
-			SaveFolder: sSaveFolder,
-			To: this.to(),
-			Cc: this.cc(),
-			Bcc: this.bcc(),
-			ReplyTo: this.replyTo(),
-			Subject: this.subject(),
-			TextIsHtml: TextIsHtml,
-			Text: Text,
-			DraftInfo: this.aDraftInfo,
-			InReplyTo: this.sInReplyTo,
-			References: this.sReferences,
-			MarkAsImportant: this.markAsImportant() ? 1 : 0,
-			Attachments: this.prepearAttachmentsForSendOrSave(),
-			// Only used at send, not at save:
-			Dsn: this.requestDsn() ? 1 : 0,
-			ReadReceiptRequest: this.requestReadReceipt() ? 1 : 0
-		};
+		this.from(IdentityUserStore()[0].formattedName());
 	}
 
 	sendCommand() {
@@ -372,10 +425,10 @@ class ComposePopupView extends AbstractViewPopup {
 
 		if (this.attachmentsInProcess().length) {
 			this.attachmentsInProcessError(true);
-			this.attachmentsPlace(true);
+			this.attachmentsArea();
 		} else if (this.attachmentsInError().length) {
 			this.attachmentsInErrorError(true);
-			this.attachmentsPlace(true);
+			this.attachmentsArea();
 		}
 
 		if (!this.to().trim() && !this.cc().trim() && !this.bcc().trim()) {
@@ -395,136 +448,148 @@ class ComposePopupView extends AbstractViewPopup {
 
 			if (!sSentFolder) {
 				showScreenPopup(FolderSystemPopupView, [SetSystemFoldersNotification.Sent]);
-			} else {
+			} else try {
 				this.sendError(false);
 				this.sending(true);
 
 				if (3 === arrayLength(this.aDraftInfo)) {
 					const flagsCache = MessageFlagsCache.getFor(this.aDraftInfo[2], this.aDraftInfo[1]);
-					if (flagsCache) {
-						if ('forward' === this.aDraftInfo[0]) {
-							flagsCache[3] = true;
-						} else {
-							flagsCache[2] = true;
-						}
-
+					if (isArray(flagsCache)) {
+						flagsCache.push(('forward' === this.aDraftInfo[0]) ? '$forwarded' : '\\answered');
 						MessageFlagsCache.setFor(this.aDraftInfo[2], this.aDraftInfo[1], flagsCache);
-						rl.app.reloadFlagsCurrentMessageListAndMessageFromCache();
+						MessagelistUserStore.reloadFlagsAndCachedMessage();
 						setFolderHash(this.aDraftInfo[2], '');
 					}
 				}
 
 				sSentFolder = UNUSED_OPTION_VALUE === sSentFolder ? '' : sSentFolder;
 
-				setFolderHash(this.draftFolder(), '');
-				setFolderHash(sSentFolder, '');
-
-				Remote.sendMessage(
-					(iError, data) => {
-						this.sending(false);
-						if (this.modalVisibility()) {
+				this.getMessageRequestParams(sSentFolder).then(params => {
+					Remote.request('SendMessage',
+						(iError, data) => {
+							this.sending(false);
 							if (iError) {
 								if (Notification.CantSaveMessage === iError) {
 									this.sendSuccessButSaveError(true);
 									this.savedErrorDesc(i18n('COMPOSE/SAVED_ERROR_ON_SEND').trim());
 								} else {
 									this.sendError(true);
-									this.sendErrorDesc(getNotification(iError, data && data.ErrorMessage)
+									this.sendErrorDesc(getNotification(iError, data?.ErrorMessage)
 										|| getNotification(Notification.CantSendMessage));
 								}
 							} else {
-								this.closeCommand();
+								this.close();
 							}
-						}
-						this.reloadDraftFolder();
-					},
-					this.getMessageRequestParams(sSentFolder)
-				);
+							setFolderHash(this.draftsFolder(), '');
+							setFolderHash(sSentFolder, '');
+							reloadDraftFolder();
+						},
+						params,
+						30000
+					);
+				}).catch(e => {
+					console.error(e);
+					this.sendError(true);
+					this.sendErrorDesc(e);
+					this.sending(false);
+				});
+			} catch (e) {
+				console.error(e);
+				this.sendError(true);
+				this.sendErrorDesc(e);
+				this.sending(false);
 			}
 		}
 	}
 
 	saveCommand() {
-		if (FolderUserStore.draftFolderNotEnabled()) {
+		if (FolderUserStore.draftsFolderNotEnabled()) {
 			showScreenPopup(FolderSystemPopupView, [SetSystemFoldersNotification.Draft]);
 		} else {
 			this.savedError(false);
 			this.saving(true);
-
 			this.autosaveStart();
+			this.getMessageRequestParams(FolderUserStore.draftsFolder(), 1).then(params => {
+				Remote.request('SaveMessage',
+					(iError, oData) => {
+						let result = false;
 
-			setFolderHash(FolderUserStore.draftFolder(), '');
+						this.saving(false);
 
-			Remote.saveMessage(
-				(iError, oData) => {
-					let result = false;
+						if (!iError) {
+							if (oData.Result.NewFolder && oData.Result.NewUid) {
+								result = true;
 
-					this.saving(false);
-
-					if (!iError) {
-						if (oData.Result.NewFolder && oData.Result.NewUid) {
-							result = true;
-
-							if (this.bFromDraft) {
-								const message = MessageUserStore.message();
-								if (message && this.draftFolder() === message.folder && this.draftUid() === message.uid) {
-									MessageUserStore.message(null);
+								if (this.bFromDraft) {
+									const message = MessageUserStore.message();
+									if (message && this.draftsFolder() === message.folder && this.draftUid() == message.uid) {
+										MessageUserStore.message(null);
+									}
 								}
-							}
 
-							this.draftFolder(oData.Result.NewFolder);
-							this.draftUid(oData.Result.NewUid);
+								this.draftsFolder(oData.Result.NewFolder);
+								this.draftUid(oData.Result.NewUid);
 
-							this.savedTime(new Date);
+								this.savedTime(new Date);
 
-							if (this.bFromDraft) {
-								setFolderHash(this.draftFolder(), '');
+								if (this.bFromDraft) {
+									setFolderHash(this.draftsFolder(), '');
+								}
+								setFolderHash(FolderUserStore.draftsFolder(), '');
 							}
 						}
-					}
 
-					if (!result) {
-						this.savedError(true);
-						this.savedErrorDesc(getNotification(Notification.CantSaveMessage));
-					}
+						if (!result) {
+							this.savedError(true);
+							this.savedErrorDesc(getNotification(Notification.CantSaveMessage));
+						}
 
-					this.reloadDraftFolder();
-				},
-				this.getMessageRequestParams(FolderUserStore.draftFolder())
-			);
+						reloadDraftFolder();
+					},
+					params,
+					200000
+				);
+			}).catch(e => {
+				this.saving(false);
+				this.savedError(true);
+				this.savedErrorDesc(getNotification(Notification.CantSaveMessage) + ': ' + e);
+			});
 		}
-
-		return true;
 	}
 
 	deleteCommand() {
-		if (!isPopupVisible(AskPopupView) && this.modalVisibility()) {
-			showScreenPopup(AskPopupView, [
-				i18n('POPUPS_ASK/DESC_WANT_DELETE_MESSAGES'),
-				() => {
-					if (this.modalVisibility()) {
-						rl.app.deleteMessagesFromFolderWithoutCheck(this.draftFolder(), [this.draftUid()]);
-						hideScreenPopup(ComposePopupView);
-					}
-				}
-			]);
-		}
+		AskPopupView.hidden()
+		&& showScreenPopup(AskPopupView, [
+			i18n('POPUPS_ASK/DESC_WANT_DELETE_MESSAGES'),
+			() => {
+				const
+					sFromFolderFullName = this.draftsFolder(),
+					oUids = new Set([this.draftUid()]);
+				messagesDeleteHelper(sFromFolderFullName, oUids);
+				MessagelistUserStore.removeMessagesFromList(sFromFolderFullName, oUids);
+				this.close();
+			}
+		]);
+	}
+
+	onClose() {
+		this.skipCommand();
+		return false;
 	}
 
 	skipCommand() {
-		this.bSkipNextHide = true;
+		ComposePopupView.inEdit(true);
 
 		if (
-			this.modalVisibility() &&
 			!this.saving() &&
 			!this.sending() &&
-			!FolderUserStore.draftFolderNotEnabled() &&
+			!FolderUserStore.draftsFolderNotEnabled() &&
 			SettingsUserStore.allowDraftAutosave()
 		) {
 			this.saveCommand();
 		}
 
-		this.tryToClosePopup();
+		this.tryToClose();
 	}
 
 	contactsCommand() {
@@ -539,8 +604,8 @@ class ComposePopupView extends AbstractViewPopup {
 	autosaveStart() {
 		clearTimeout(this.iTimer);
 		this.iTimer = setTimeout(()=>{
-			if (this.modalVisibility()
-				&& !FolderUserStore.draftFolderNotEnabled()
+			if (this.modalVisible()
+				&& !FolderUserStore.draftsFolderNotEnabled()
 				&& SettingsUserStore.allowDraftAutosave()
 				&& !this.isEmptyForm(false)
 				&& !this.saving()
@@ -554,78 +619,31 @@ class ComposePopupView extends AbstractViewPopup {
 		}, 60000);
 	}
 
-	emailsSource(oData, fResponse) {
-		rl.app.getAutocomplete(oData.term, aData => fResponse(aData.map(oEmailItem => oEmailItem.toLine(false))));
-	}
-
-	openOpenPgpPopup() {
-		if (PgpUserStore.capaOpenPGP() && !this.oEditor.isHtml()) {
-			showScreenPopup(ComposeOpenPgpPopupView, [
-				result => this.editor(editor => editor.setPlain(result)),
-				this.oEditor.getData(false),
-				this.currentIdentity(),
-				this.to(),
-				this.cc(),
-				this.bcc()
-			]);
-		}
-	}
-
-	reloadDraftFolder() {
-		const draftFolder = FolderUserStore.draftFolder();
-		if (draftFolder && UNUSED_OPTION_VALUE !== draftFolder) {
-			setFolderHash(draftFolder, '');
-			if (FolderUserStore.currentFolderFullNameRaw() === draftFolder) {
-				rl.app.reloadMessageList(true);
-			} else {
-				rl.app.folderInformation(draftFolder);
-			}
-		}
-	}
-
-	findIdentityByMessage(composeType, message) {
-		let resultIndex = 1000,
-			resultIdentity = null;
-		const identities = IdentityUserStore(),
-			identitiesCache = {},
-			fEachHelper = (item) => {
-				if (item && item.email && identitiesCache[item.email]) {
-					if (!resultIdentity || resultIndex > identitiesCache[item.email][1]) {
-						resultIdentity = identitiesCache[item.email][0];
-						resultIndex = identitiesCache[item.email][1];
-					}
+	// getAutocomplete
+	emailsSource(value, fResponse) {
+		Remote.abort('Suggestions').request('Suggestions',
+			(iError, data) => {
+				if (!iError && isArray(data.Result)) {
+					fResponse(
+						data.Result.map(item => (item?.[0] ? (new EmailModel(item[0], item[1])).toLine() : null))
+						.filter(v => v)
+					);
+				} else if (Notification.RequestAborted !== iError) {
+					fResponse([]);
 				}
-			};
-
-		identities.forEach((item, index) => identitiesCache[item.email()] = [item, index]);
-
-		if (message) {
-			switch (composeType) {
-				case ComposeType.Empty:
-					break;
-				case ComposeType.Reply:
-				case ComposeType.ReplyAll:
-				case ComposeType.Forward:
-				case ComposeType.ForwardAsAttachment:
-					message.to.concat(message.cc, message.bcc).forEach(fEachHelper);
-					if (!resultIdentity) {
-						message.deliveredTo.forEach(fEachHelper);
-					}
-					break;
-				case ComposeType.Draft:
-					message.from.concat(message.replyTo).forEach(fEachHelper);
-					break;
-				// no default
+			},
+			{
+				Query: value
+//				,Page: 1
 			}
-		}
-
-		return resultIdentity || identities[0] || null;
+		);
 	}
 
 	selectIdentity(identity) {
-		if (identity && identity.item) {
-			this.currentIdentity(identity.item);
-			this.setSignatureFromIdentity(identity.item);
+		identity = identity?.item;
+		if (identity) {
+			this.currentIdentity(identity);
+			this.setSignature(identity);
 		}
 	}
 
@@ -633,29 +651,28 @@ class ComposePopupView extends AbstractViewPopup {
 		// Stop autosave
 		clearTimeout(this.iTimer);
 
-		AppUserStore.composeInEdit(this.bSkipNextHide);
-
-		this.bSkipNextHide || this.reset();
-
-		this.bSkipNextHide = false;
+		ComposePopupView.inEdit() || this.reset();
 
 		this.to.focused(false);
 
-		rl.route.on();
+//		alreadyFullscreen || exitFullscreen();
+	}
 
-		this.resizeObserver.disconnect();
-
-		(doc.fullscreenElement || doc.webkitFullscreenElement) === this.oContent && doc.exitFullscreen();
+	dropMailvelope() {
+		if (this.mailvelope) {
+			elementById('mailvelope-editor').textContent = '';
+			this.mailvelope = null;
+		}
 	}
 
 	editor(fOnInit) {
-		if (fOnInit && this.composeEditorArea()) {
+		if (fOnInit && this.editorArea()) {
 			if (this.oEditor) {
 				fOnInit(this.oEditor);
 			} else {
 				// setTimeout(() => {
 				this.oEditor = new HtmlEditor(
-					this.composeEditorArea(),
+					this.editorArea(),
 					null,
 					() => fOnInit(this.oEditor),
 					bHtml => this.isHtml(!!bHtml)
@@ -665,36 +682,27 @@ class ComposePopupView extends AbstractViewPopup {
 		}
 	}
 
-	convertSignature(signature) {
-		let fromLine = this.oLastMessage ? this.emailArrayToStringLineHelper(this.oLastMessage.from, true) : '';
-		if (fromLine) {
-			signature = signature.replace(/{{FROM-FULL}}/g, fromLine);
-
-			if (!fromLine.includes(' ') && 0 < fromLine.indexOf('@')) {
-				fromLine = fromLine.replace(/@\S+/, '');
-			}
-
-			signature = signature.replace(/{{FROM}}/g, fromLine);
-		}
-
-		return signature
-			.replace(/\r/g, '')
-			.replace(/\s{1,2}?{{FROM}}/g, '')
-			.replace(/\s{1,2}?{{FROM-FULL}}/g, '')
-			.replace(/{{DATE}}/g, new Date().format('LLLL'))
-			.replace(/{{TIME}}/g, new Date().format('LT'))
-			.replace(/{{MOMENT:[^}]+}}/g, '');
-	}
-
-	setSignatureFromIdentity(identity) {
-		if (identity) {
+	setSignature(identity, msgComposeType) {
+		if (identity && ComposeType.Draft !== msgComposeType && ComposeType.EditAsNew !== msgComposeType) {
 			this.editor(editor => {
-				let signature = identity.signature(),
-					isHtml = signature && ':HTML:' === signature.substr(0, 6);
-
-				editor.setSignature(
-					this.convertSignature(isHtml ? signature.substr(6) : signature),
-					isHtml, !!identity.signatureInsertBefore());
+				let signature = identity.signature() || '',
+					isHtml = ':HTML:' === signature.slice(0, 6),
+					fromLine = oLastMessage ? emailArrayToStringLineHelper(oLastMessage.from, true) : '';
+				if (fromLine) {
+					signature = signature.replace(/{{FROM-FULL}}/g, fromLine);
+					if (!fromLine.includes(' ') && 0 < fromLine.indexOf('@')) {
+						fromLine = fromLine.replace(/@\S+/, '');
+					}
+					signature = signature.replace(/{{FROM}}/g, fromLine);
+				}
+				signature = (isHtml ? signature.slice(6) : signature)
+					.replace(/\r/g, '')
+					.replace(/\s{1,2}?{{FROM}}/g, '')
+					.replace(/\s{1,2}?{{FROM-FULL}}/g, '')
+					.replace(/{{DATE}}/g, new Date().format('LLLL'))
+					.replace(/{{TIME}}/g, new Date().format('LT'))
+					.replace(/{{MOMENT:[^}]+}}/g, '');
+				signature.length && editor.setSignature(signature, isHtml, !!identity.signatureInsertBefore());
 			});
 		}
 	}
@@ -709,15 +717,11 @@ class ComposePopupView extends AbstractViewPopup {
 	 * @param {string=} sCustomPlainText = null
 	 */
 	onShow(type, oMessageOrArray, aToEmails, aCcEmails, aBccEmails, sCustomSubject, sCustomPlainText) {
-		rl.route.off();
-
-		const ro = this.resizeObserver;
-		ro.observe(ro.compose);
-		ro.observe(ro.header);
-
 		this.autosaveStart();
 
-		if (AppUserStore.composeInEdit()) {
+		this.viewModelDom.dataset.wysiwyg = SettingsUserStore.editorDefaultType();
+
+		if (ComposePopupView.inEdit()) {
 			type = type || ComposeType.Empty;
 			if (ComposeType.Empty !== type) {
 				showScreenPopup(AskPopupView, [
@@ -726,14 +730,12 @@ class ComposePopupView extends AbstractViewPopup {
 						this.initOnShow(type, oMessageOrArray, aToEmails, aCcEmails, aBccEmails, sCustomSubject, sCustomPlainText);
 					},
 					null,
-					null,
-					null,
 					false
 				]);
 			} else {
-				this.addEmailsTo(this.to, aToEmails);
-				this.addEmailsTo(this.cc, aCcEmails);
-				this.addEmailsTo(this.bcc, aBccEmails);
+				addEmailsTo(this.to, aToEmails);
+				addEmailsTo(this.cc, aCcEmails);
+				addEmailsTo(this.bcc, aBccEmails);
 
 				if (sCustomSubject && !this.subject()) {
 					this.subject(sCustomSubject);
@@ -743,38 +745,10 @@ class ComposePopupView extends AbstractViewPopup {
 			this.initOnShow(type, oMessageOrArray, aToEmails, aCcEmails, aBccEmails, sCustomSubject, sCustomPlainText);
 		}
 
-//		(navigator.standalone || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches) &&
-		ThemeStore.isMobile() && this.oContent.requestFullscreen && this.oContent.requestFullscreen();
-	}
-
-	/**
-	 * @param {Function} fKoValue
-	 * @param {Array} emails
-	 */
-	addEmailsTo(fKoValue, emails) {
-		if (arrayLength(emails)) {
-			const value = fKoValue().trim(),
-				values = emails.map(item => item ? item.toLine(false) : null)
-					.validUnique();
-
-			fKoValue(value + (value ? ', ' :  '') + values.join(', ').trim());
-		}
-	}
-
-	/**
-	 *
-	 * @param {Array} aList
-	 * @param {boolean} bFriendly
-	 * @returns {string}
-	 */
-	emailArrayToStringLineHelper(aList, bFriendly) {
-		bFriendly = !!bFriendly;
-		return aList.map(item => item.toLine(bFriendly)).join(', ');
-	}
-
-	isPlainEditor() {
-		let type = this.editorDefaultType();
-		return EditorDefaultType.Html !== type && EditorDefaultType.HtmlForced !== type;
+		ComposePopupView.inEdit(false);
+		// Chrome bug #298
+//		alreadyFullscreen = isFullscreen();
+//		alreadyFullscreen || (ThemeStore.isMobile() && toggleFullscreen());
 	}
 
 	/**
@@ -793,372 +767,414 @@ class ComposePopupView extends AbstractViewPopup {
 			sDate = '',
 			sSubject = '',
 			sText = '',
-			sReplyTitle = '',
 			identity = null,
 			aDraftInfo = null,
-			message = null;
+			message = 1 === arrayLength(oMessageOrArray)
+				? oMessageOrArray[0]
+				: (isArray(oMessageOrArray) ? null : oMessageOrArray);
 
-		const excludeEmail = {},
+		const
+//			excludeEmail = new Set(),
+			excludeEmail = {},
 			mEmail = AccountUserStore.email(),
-			lineComposeType = sType || ComposeType.Empty;
+			msgComposeType = sType || ComposeType.Empty;
 
-		oMessageOrArray = oMessageOrArray || null;
-		if (oMessageOrArray) {
-			message =
-				1 === arrayLength(oMessageOrArray)
-					? oMessageOrArray[0]
-					: isArray(oMessageOrArray)
-					? null
-					: oMessageOrArray;
-		}
+		oLastMessage = message;
 
-		this.oLastMessage = message;
-
-		if (null !== mEmail) {
+		if (mEmail) {
+//			excludeEmail.add(mEmail);
 			excludeEmail[mEmail] = true;
 		}
 
 		this.reset();
 
-		identity = this.findIdentityByMessage(lineComposeType, message);
+		if (message) {
+			switch (msgComposeType) {
+				case ComposeType.Reply:
+				case ComposeType.ReplyAll:
+				case ComposeType.Forward:
+				case ComposeType.ForwardAsAttachment:
+					identity = findIdentity(message.to.concat(message.cc, message.bcc))
+						/* || findIdentity(message.deliveredTo)*/;
+					break;
+				case ComposeType.Draft:
+					identity = findIdentity(message.from.concat(message.replyTo));
+					break;
+				// no default
+//				case ComposeType.Empty:
+			}
+		}
+		identity = identity || IdentityUserStore()[0];
 		if (identity) {
+//			excludeEmail.add(identity.email());
 			excludeEmail[identity.email()] = true;
 		}
 
 		if (arrayLength(aToEmails)) {
-			this.to(this.emailArrayToStringLineHelper(aToEmails));
+			this.to(emailArrayToStringLineHelper(aToEmails));
 		}
 
 		if (arrayLength(aCcEmails)) {
-			this.cc(this.emailArrayToStringLineHelper(aCcEmails));
+			this.cc(emailArrayToStringLineHelper(aCcEmails));
 		}
 
 		if (arrayLength(aBccEmails)) {
-			this.bcc(this.emailArrayToStringLineHelper(aBccEmails));
+			this.bcc(emailArrayToStringLineHelper(aBccEmails));
 		}
 
-		if (lineComposeType && message) {
+		if (msgComposeType && message) {
 			sDate = timestampToString(message.dateTimeStampInUTC(), 'FULL');
 			sSubject = message.subject();
-			aDraftInfo = message.aDraftInfo;
-			sText = message.bodyAsHTML();
+			aDraftInfo = message.draftInfo;
 
-			let resplyAllParts = null;
-			switch (lineComposeType) {
-				case ComposeType.Empty:
-					break;
-
+			switch (msgComposeType) {
 				case ComposeType.Reply:
-					this.to(this.emailArrayToStringLineHelper(message.replyEmails(excludeEmail)));
-					this.subject(replySubjectAdd('Re', sSubject));
-					this.prepareMessageAttachments(message, lineComposeType);
-					this.aDraftInfo = ['reply', message.uid, message.folder];
-					this.sInReplyTo = message.sMessageId;
-					this.sReferences = (this.sInReplyTo + ' ' + message.sReferences).trim();
-					break;
-
 				case ComposeType.ReplyAll:
-					resplyAllParts = message.replyAllEmails(excludeEmail);
-					this.to(this.emailArrayToStringLineHelper(resplyAllParts[0]));
-					this.cc(this.emailArrayToStringLineHelper(resplyAllParts[1]));
+					if (ComposeType.Reply === msgComposeType) {
+						this.to(emailArrayToStringLineHelper(message.replyEmails(excludeEmail)));
+					} else {
+						let parts = message.replyAllEmails(excludeEmail);
+						this.to(emailArrayToStringLineHelper(parts[0]));
+						this.cc(emailArrayToStringLineHelper(parts[1]));
+					}
 					this.subject(replySubjectAdd('Re', sSubject));
-					this.prepareMessageAttachments(message, lineComposeType);
+					this.prepareMessageAttachments(message, msgComposeType);
 					this.aDraftInfo = ['reply', message.uid, message.folder];
-					this.sInReplyTo = message.sMessageId;
-					this.sReferences = (this.sInReplyTo + ' ' + message.references).trim();
+					this.sInReplyTo = message.messageId;
+					this.sReferences = (message.messageId + ' ' + message.references).trim();
 					break;
 
 				case ComposeType.Forward:
-					this.subject(replySubjectAdd('Fwd', sSubject));
-					this.prepareMessageAttachments(message, lineComposeType);
-					this.aDraftInfo = ['forward', message.uid, message.folder];
-					this.sInReplyTo = message.sMessageId;
-					this.sReferences = (this.sInReplyTo + ' ' + message.sReferences).trim();
-					break;
-
 				case ComposeType.ForwardAsAttachment:
 					this.subject(replySubjectAdd('Fwd', sSubject));
-					this.prepareMessageAttachments(message, lineComposeType);
+					this.prepareMessageAttachments(message, msgComposeType);
 					this.aDraftInfo = ['forward', message.uid, message.folder];
-					this.sInReplyTo = message.sMessageId;
-					this.sReferences = (this.sInReplyTo + ' ' + message.sReferences).trim();
+					this.sInReplyTo = message.messageId;
+					this.sReferences = (message.messageId + ' ' + message.references).trim();
 					break;
 
 				case ComposeType.Draft:
-					this.to(this.emailArrayToStringLineHelper(message.to));
-					this.cc(this.emailArrayToStringLineHelper(message.cc));
-					this.bcc(this.emailArrayToStringLineHelper(message.bcc));
-					this.replyTo(this.emailArrayToStringLineHelper(message.replyTo));
+					this.to(emailArrayToStringLineHelper(message.to));
+					this.cc(emailArrayToStringLineHelper(message.cc));
+					this.bcc(emailArrayToStringLineHelper(message.bcc));
+					this.replyTo(emailArrayToStringLineHelper(message.replyTo));
 
 					this.bFromDraft = true;
 
-					this.draftFolder(message.folder);
+					this.draftsFolder(message.folder);
 					this.draftUid(message.uid);
 
 					this.subject(sSubject);
-					this.prepareMessageAttachments(message, lineComposeType);
+					this.prepareMessageAttachments(message, msgComposeType);
 
 					this.aDraftInfo = 3 === arrayLength(aDraftInfo) ? aDraftInfo : null;
-					this.sInReplyTo = message.sInReplyTo;
-					this.sReferences = message.sReferences;
+					this.sInReplyTo = message.inReplyTo;
+					this.sReferences = message.references;
 					break;
 
 				case ComposeType.EditAsNew:
-					this.to(this.emailArrayToStringLineHelper(message.to));
-					this.cc(this.emailArrayToStringLineHelper(message.cc));
-					this.bcc(this.emailArrayToStringLineHelper(message.bcc));
-					this.replyTo(this.emailArrayToStringLineHelper(message.replyTo));
+					this.to(emailArrayToStringLineHelper(message.to));
+					this.cc(emailArrayToStringLineHelper(message.cc));
+					this.bcc(emailArrayToStringLineHelper(message.bcc));
+					this.replyTo(emailArrayToStringLineHelper(message.replyTo));
 
 					this.subject(sSubject);
-					this.prepareMessageAttachments(message, lineComposeType);
+					this.prepareMessageAttachments(message, msgComposeType);
 
 					this.aDraftInfo = 3 === arrayLength(aDraftInfo) ? aDraftInfo : null;
-					this.sInReplyTo = message.sInReplyTo;
-					this.sReferences = message.sReferences;
+					this.sInReplyTo = message.inReplyTo;
+					this.sReferences = message.references;
 					break;
+
+//				case ComposeType.Empty:
+//					break;
 				// no default
 			}
 
-			switch (lineComposeType) {
+			let encrypted;
+
+			// https://github.com/the-djmaze/snappymail/issues/491
+			tpl.innerHTML = message.bodyAsHTML();
+			tpl.content.querySelectorAll('img').forEach(img =>
+				img.dataset.xSrcCid || img.dataset.xSrc || img.replaceWith(img.alt || img.title)
+			);
+			sText = tpl.innerHTML.trim();
+
+			switch (msgComposeType) {
 				case ComposeType.Reply:
 				case ComposeType.ReplyAll:
 					sFrom = message.fromToLine(false, true);
-					sReplyTitle = i18n('COMPOSE/REPLY_MESSAGE_TITLE', {
-						DATETIME: sDate,
-						EMAIL: sFrom
-					});
-
-					sText = sText.replace(/<img[^>]+>/g, '').replace(/<a\s[^>]+><\/a>/g, '').trim();
-					sText = '<br/><br/>' + sReplyTitle + ':<br/><br/><blockquote>' + sText + '</blockquote>';
-
+					sText = '<br><br><p>' + i18n('COMPOSE/REPLY_MESSAGE_TITLE', { DATETIME: sDate, EMAIL: sFrom })
+						+ ':</p><blockquote>'
+						+ sText.trim()
+						+ '</blockquote>';
 					break;
 
 				case ComposeType.Forward:
 					sFrom = message.fromToLine(false, true);
 					sTo = message.toToLine(false, true);
 					sCc = message.ccToLine(false, true);
-					sText =
-						'<br/><br/>' +
-						i18n('COMPOSE/FORWARD_MESSAGE_TOP_TITLE') +
-						'<br/>' +
-						i18n('GLOBAL/FROM') +
-						': ' +
-						sFrom +
-						'<br/>' +
-						i18n('GLOBAL/TO') +
-						': ' +
-						sTo +
-						(sCc.length ? '<br/>' + i18n('GLOBAL/CC') + ': ' + sCc : '') +
-						'<br/>' +
-						i18n('COMPOSE/FORWARD_MESSAGE_TOP_SENT') +
-						': ' +
-						encodeHtml(sDate) +
-						'<br/>' +
-						i18n('GLOBAL/SUBJECT') +
-						': ' +
-						encodeHtml(sSubject) +
-						'<br/><br/>' +
-						sText.trim() +
-						'<br/><br/>';
+					sText = '<br><br><p>' + i18n('COMPOSE/FORWARD_MESSAGE_TOP_TITLE') + '</p><div>'
+						+ i18n('GLOBAL/FROM') + ': ' + sFrom
+						+ '<br>'
+						+ i18n('GLOBAL/TO') + ': ' + sTo
+						+ (sCc.length ? '<br>' + i18n('GLOBAL/CC') + ': ' + sCc : '')
+						+ '<br>'
+						+ i18n('COMPOSE/FORWARD_MESSAGE_TOP_SENT')
+						+ ': '
+						+ encodeHtml(sDate)
+						+ '<br>'
+						+ i18n('GLOBAL/SUBJECT')
+						+ ': '
+						+ encodeHtml(sSubject)
+						+ '<br><br>'
+						+ sText.trim()
+						+ '</div>';
 					break;
 
 				case ComposeType.ForwardAsAttachment:
 					sText = '';
 					break;
-				// no default
+
+				default:
+					encrypted = PgpUserStore.isEncrypted(sText);
+					if (encrypted) {
+						sText = message.plain();
+					}
 			}
 
 			this.editor(editor => {
-				editor.setHtml(sText);
-
-				if (
-					EditorDefaultType.PlainForced === this.editorDefaultType() ||
-					(!message.isHtml() && EditorDefaultType.HtmlForced !== this.editorDefaultType())
-				) {
+				encrypted || editor.setHtml(sText);
+				if (encrypted || isPlainEditor() || !message.isHtml()) {
 					editor.modePlain();
 				}
-
-				if (identity && ComposeType.Draft !== lineComposeType && ComposeType.EditAsNew !== lineComposeType) {
-					this.setSignatureFromIdentity(identity);
-				}
-
+				encrypted && editor.setPlain(sText);
+				this.setSignature(identity, msgComposeType);
 				this.setFocusInPopup();
 			});
-		} else if (ComposeType.Empty === lineComposeType) {
+		} else if (ComposeType.Empty === msgComposeType) {
 			this.subject(null != sCustomSubject ? '' + sCustomSubject : '');
-
-			sText = null != sCustomPlainText ? '' + sCustomPlainText : '';
-
 			this.editor(editor => {
-				editor.setHtml(sText);
-
-				if (this.isPlainEditor()) {
-					editor.modePlain();
-				}
-
-				if (identity) {
-					this.setSignatureFromIdentity(identity);
-				}
-
+				editor.setHtml(sCustomPlainText ? '' + sCustomPlainText : '');
+				isPlainEditor() && editor.modePlain();
+				this.setSignature(identity);
 				this.setFocusInPopup();
 			});
 		} else if (arrayLength(oMessageOrArray)) {
 			oMessageOrArray.forEach(item => this.addMessageAsAttachment(item));
-
 			this.editor(editor => {
-				if (this.isPlainEditor()) {
-					editor.setPlain('')
-				} else {
-					editor.setHtml('');
-				}
-
-				if (identity && ComposeType.Draft !== lineComposeType && ComposeType.EditAsNew !== lineComposeType) {
-					this.setSignatureFromIdentity(identity);
-				}
-
+				isPlainEditor() ? editor.setPlain('') : editor.setHtml('');
+				this.setSignature(identity, msgComposeType);
 				this.setFocusInPopup();
 			});
 		} else {
 			this.setFocusInPopup();
 		}
 
-		const downloads = this.getAttachmentsDownloadsForUpload();
+		// item.CID item.isInline item.isLinked
+		const downloads = this.attachments.filter(item => item && !item.tempName()).map(item => item.id);
 		if (arrayLength(downloads)) {
-			Remote.messageUploadAttachments((iError, oData) => {
-				if (!iError) {
-					Object.entries(oData.Result).forEach(([tempName, id]) => {
-						const attachment = this.getAttachmentById(id);
-						if (attachment) {
-							attachment.tempName(tempName);
-							attachment
-								.waiting(false)
-								.uploading(false)
-								.complete(true);
-						}
-					});
-				} else {
-					this.attachments.forEach(attachment => {
-						if (attachment && attachment.fromMessage) {
-							attachment
-								.waiting(false)
-								.uploading(false)
-								.complete(true)
-								.error(getUploadErrorDescByCode(UploadErrorCode.NoFileUploaded));
-						}
-					});
-				}
-			}, downloads);
+			Remote.request('MessageUploadAttachments',
+				(iError, oData) => {
+					if (!iError) {
+						forEachObjectEntry(oData.Result, (tempName, id) => {
+							const attachment = this.getAttachmentById(id);
+							if (attachment) {
+								attachment.tempName(tempName);
+								attachment
+									.waiting(false)
+									.uploading(false)
+									.complete(true);
+							}
+						});
+					} else {
+						this.attachments.forEach(attachment => {
+							if (attachment?.fromMessage) {
+								attachment
+									.waiting(false)
+									.uploading(false)
+									.complete(true)
+									.error(getUploadErrorDescByCode(UploadErrorCode.NoFileUploaded));
+							}
+						});
+					}
+				},
+				{
+					Attachments: downloads
+				},
+				999000
+			);
 		}
 
-		if (identity) {
-			this.currentIdentity(identity);
-		}
+		this.currentIdentity(identity);
 	}
 
 	setFocusInPopup() {
 		setTimeout(() => {
 			if (!this.to()) {
 				this.to.focused(true);
-			} else if (!this.to.focused()) {
-				this.oEditor && this.oEditor.focus();
+			// TODO https://github.com/the-djmaze/snappymail/issues/501#issuecomment-1255906243
+//			} else if (!this.subject()) {
+//				this.subject.focus();
+			} else {
+				this.oEditor?.focus();
 			}
 		}, 100);
 	}
 
-	tryToClosePopup() {
-		if (!isPopupVisible(AskPopupView) && this.modalVisibility()) {
-			if (this.bSkipNextHide || (this.isEmptyForm() && !this.draftUid())) {
-				this.closeCommand();
+	tryToClose() {
+		if (AskPopupView.hidden()) {
+			if (ComposePopupView.inEdit() || (this.isEmptyForm() && !this.draftUid())) {
+				this.close();
 			} else {
 				showScreenPopup(AskPopupView, [
 					i18n('POPUPS_ASK/DESC_WANT_CLOSE_THIS_WINDOW'),
-					() => {
-						this.modalVisibility() && this.closeCommand();
-					}
+					() => this.close()
 				]);
 			}
 		}
 	}
 
-	popupMenu(event) {
-		if (event.ctrlKey || event.metaKey || 'ContextMenu' == event.key
-		 || (this.oEditor && !this.oEditor.hasFocus() && !inFocus())) {
+	onBuild(dom) {
+		// initUploader
+		const oJua = new Jua({
+				action: serverRequest('Upload'),
+				clickElement: dom.querySelector('#composeUploadButton'),
+				dragAndDropElement: dom.querySelector('.b-attachment-place')
+			}),
+			attachmentSizeLimit = pInt(SettingsGet('AttachmentLimit'));
+
+		oJua
+			// .on('onLimitReached', (limit) => {
+			// 	alert(limit);
+			// })
+			.on('onDragEnter', () => {
+				this.dragAndDropOver(true);
+			})
+			.on('onDragLeave', () => {
+				this.dragAndDropOver(false);
+			})
+			.on('onBodyDragEnter', () => {
+				this.attachmentsArea();
+				this.dragAndDropVisible(true);
+			})
+			.on('onBodyDragLeave', () => {
+				this.dragAndDropVisible(false);
+			})
+			.on('onProgress', (id, loaded, total) => {
+				let item = this.getAttachmentById(id);
+				if (item) {
+					item.progress(Math.floor((loaded / total) * 100));
+				}
+			})
+			.on('onSelect', (sId, oData) => {
+				this.dragAndDropOver(false);
+
+				const
+					size = pInt(oData.Size, null),
+					attachment = new ComposeAttachmentModel(
+						sId,
+						oData.FileName ? oData.FileName.toString() : '',
+						size
+					);
+
+				this.addAttachment(attachment, 1, oJua);
+
+				if (0 < size && 0 < attachmentSizeLimit && attachmentSizeLimit < size) {
+					attachment
+						.waiting(false)
+						.uploading(true)
+						.complete(true)
+						.error(i18n('UPLOAD/ERROR_FILE_IS_TOO_BIG'));
+
+					return false;
+				}
+
+				return true;
+			})
+			.on('onStart', id => {
+				let item = this.getAttachmentById(id);
+				if (item) {
+					item
+						.waiting(false)
+						.uploading(true)
+						.complete(false);
+				}
+			})
+			.on('onComplete', (id, result, data) => {
+				const attachment = this.getAttachmentById(id),
+					response = data?.Result || {},
+					errorCode = response.ErrorCode,
+					attachmentJson = result && response.Attachment;
+
+				let error = '';
+				if (null != errorCode) {
+					error = getUploadErrorDescByCode(errorCode);
+				} else if (!attachmentJson) {
+					error = i18n('UPLOAD/ERROR_UNKNOWN');
+				}
+
+				if (attachment) {
+					if (error) {
+						attachment
+							.waiting(false)
+							.uploading(false)
+							.complete(true)
+							.error(error + '\n' + response.ErrorMessage);
+					} else if (attachmentJson) {
+						attachment
+							.waiting(false)
+							.uploading(false)
+							.complete(true);
+						attachment.fileName(attachmentJson.Name);
+						attachment.size(attachmentJson.Size ? pInt(attachmentJson.Size) : 0);
+						attachment.tempName(attachmentJson.TempName ? attachmentJson.TempName : '');
+						attachment.isInline = false;
+					}
+				}
+			});
+
+		this.addAttachmentEnabled(true);
+
+		addShortcut('q', 'meta', ScopeCompose, ()=>false);
+		addShortcut('w', 'meta', ScopeCompose, ()=>false);
+
+		addShortcut('m', 'meta', ScopeCompose, () => {
 			this.identitiesDropdownTrigger(true);
 			return false;
-		}
-		return true;
-	}
-
-	onBuild(dom) {
-		this.initUploader();
-
-		shortcuts.add('q', 'meta', Scope.Compose, ()=>false);
-		shortcuts.add('w', 'meta', Scope.Compose, ()=>false);
-
-		shortcuts.add('m,contextmenu', '', Scope.Compose, e => this.popupMenu(e));
-		shortcuts.add('m', 'ctrl', Scope.Compose, e => this.popupMenu(e));
-
-		shortcuts.add('escape,close', '', Scope.Compose, () => {
-			this.skipCommand();
-			return false;
 		});
-		shortcuts.add('arrowdown', 'meta', Scope.Compose, () => {
+
+		addShortcut('arrowdown', 'meta', ScopeCompose, () => {
 			this.skipCommand();
 			return false;
 		});
 
-		shortcuts.add('s', 'meta', Scope.Compose, () => {
+		addShortcut('s', 'meta', ScopeCompose, () => {
 			this.saveCommand();
 			return false;
 		});
-		shortcuts.add('save', Scope.Compose, () => {
+		addShortcut('save', '', ScopeCompose, () => {
 			this.saveCommand();
 			return false;
 		});
 
 		if (Settings.app('allowCtrlEnterOnCompose')) {
-			shortcuts.add('enter', 'meta', Scope.Compose, () => {
+			addShortcut('enter', 'meta', ScopeCompose, () => {
 				this.sendCommand();
 				return false;
 			});
 		}
-		shortcuts.add('mailsend', '', Scope.Compose, () => {
+		addShortcut('mailsend', '', ScopeCompose, () => {
 			this.sendCommand();
 			return false;
 		});
 
-		shortcuts.add('escape,close', 'shift', Scope.Compose, () => {
-			this.modalVisibility() && this.tryToClosePopup();
+		addShortcut('escape,close', 'shift', ScopeCompose, () => {
+			this.tryToClose();
 			return false;
 		});
 
-		const ro = this.resizeObserver;
-		ro.compose = dom.querySelector('.b-compose');
-		ro.header = dom.querySelector('.b-header');
-		ro.toolbar = dom.querySelector('.b-header-toolbar');
-		ro.els = [dom.querySelector('.textAreaParent'), dom.querySelector('.attachmentAreaParent')];
-
-		this.editor(editor => editor.modeWysiwyg());
-
-		// Fullscreen must be on app, else other popups fail
-		const el = doc.getElementById('rl-app');
-		let event = 'fullscreenchange';
-		if (!el.requestFullscreen && el.webkitRequestFullscreen) {
-			el.requestFullscreen = el.webkitRequestFullscreen;
-			event = 'webkit' + event;
-		}
-		if (el.requestFullscreen) {
-			if (!doc.exitFullscreen && doc.webkitExitFullscreen) {
-				doc.exitFullscreen = doc.webkitExitFullscreen;
-			}
-			this.oContent = el;
-			el.addEventListener(event, () =>
-				ThemeStore.isMobile()
-				&& this.modalVisibility()
-				&& (doc.fullscreenElement || doc.webkitFullscreenElement) !== el
-				&& this.skipCommand()
-			);
-		}
+		this.editor(editor => editor[isPlainEditor()?'modePlain':'modeWysiwyg']());
 	}
 
 	/**
@@ -1169,150 +1185,13 @@ class ComposePopupView extends AbstractViewPopup {
 		return this.attachments.find(item => item && id === item.id);
 	}
 
-	cancelAttachmentHelper(id, oJua) {
-		return () => {
-			const attachment = this.getAttachmentById(id);
-			if (attachment) {
-				this.attachments.remove(attachment);
-				delegateRunOnDestroy(attachment);
-				oJua && oJua.cancel(id);
-			}
-		};
-	}
-
-	initUploader() {
-		if (this.composeUploaderButton()) {
-			const uploadCache = {},
-				attachmentSizeLimit = pInt(SettingsGet('AttachmentLimit')),
-				oJua = new Jua({
-					action: serverRequest('Upload'),
-					name: 'uploader',
-					queueSize: 2,
-					multipleSizeLimit: 50,
-					clickElement: this.composeUploaderButton(),
-					dragAndDropElement: this.composeUploaderDropPlace()
-				});
-
-			if (oJua) {
-				oJua
-					// .on('onLimitReached', (limit) => {
-					// 	alert(limit);
-					// })
-					.on('onDragEnter', () => {
-						this.dragAndDropOver(true);
-					})
-					.on('onDragLeave', () => {
-						this.dragAndDropOver(false);
-					})
-					.on('onBodyDragEnter', () => {
-						this.attachmentsPlace(true);
-						this.dragAndDropVisible(true);
-					})
-					.on('onBodyDragLeave', () => {
-						this.dragAndDropVisible(false);
-					})
-					.on('onProgress', (id, loaded, total) => {
-						let item = uploadCache[id];
-						if (!item) {
-							item = this.getAttachmentById(id);
-							if (item) {
-								uploadCache[id] = item;
-							}
-						}
-
-						if (item) {
-							item.progress(Math.floor((loaded / total) * 100));
-						}
-					})
-					.on('onSelect', (sId, oData) => {
-						this.dragAndDropOver(false);
-
-						const fileName = undefined === oData.FileName ? '' : oData.FileName.toString(),
-							size = pInt(oData.Size, null),
-							attachment = new ComposeAttachmentModel(sId, fileName, size);
-
-						attachment.cancel = this.cancelAttachmentHelper(sId, oJua);
-
-						this.attachments.push(attachment);
-
-						this.attachmentsPlace(true);
-
-						if (0 < size && 0 < attachmentSizeLimit && attachmentSizeLimit < size) {
-							attachment
-								.waiting(false)
-								.uploading(true)
-								.complete(true)
-								.error(i18n('UPLOAD/ERROR_FILE_IS_TOO_BIG'));
-
-							return false;
-						}
-
-						return true;
-					})
-					.on('onStart', (id) => {
-						let item = uploadCache[id];
-						if (!item) {
-							item = this.getAttachmentById(id);
-							if (item) {
-								uploadCache[id] = item;
-							}
-						}
-
-						if (item) {
-							item
-								.waiting(false)
-								.uploading(true)
-								.complete(false);
-						}
-					})
-					.on('onComplete', (id, result, data) => {
-						const attachment = this.getAttachmentById(id),
-							errorCode = data && data.Result && data.Result.ErrorCode ? data.Result.ErrorCode : null,
-							attachmentJson = result && data && data.Result && data.Result.Attachment ? data.Result.Attachment : null;
-
-						let error = '';
-						if (null !== errorCode) {
-							error = getUploadErrorDescByCode(errorCode);
-						} else if (!attachmentJson) {
-							error = i18n('UPLOAD/ERROR_UNKNOWN');
-						}
-
-						if (attachment) {
-							if (error && error.length) {
-								attachment
-									.waiting(false)
-									.uploading(false)
-									.complete(true)
-									.error(error);
-							} else if (attachmentJson) {
-								attachment
-									.waiting(false)
-									.uploading(false)
-									.complete(true);
-
-								attachment.initByUploadJson(attachmentJson);
-							}
-
-							if (undefined === uploadCache[id]) {
-								delete uploadCache[id];
-							}
-						}
-					});
-
-				this.addAttachmentEnabled(true).dragAndDropEnabled(true);
-			} else {
-				this.addAttachmentEnabled(false).dragAndDropEnabled(false);
-			}
-		}
-	}
-
 	/**
 	 * @returns {Object}
 	 */
-	prepearAttachmentsForSendOrSave() {
+	prepareAttachmentsForSendOrSave() {
 		const result = {};
 		this.attachments.forEach(item => {
-			if (item && item.complete() && item.tempName() && item.enabled()) {
+			if (item?.complete() && item?.tempName() && item?.enabled()) {
 				result[item.tempName()] = [item.fileName(), item.isInline ? '1' : '0', item.CID, item.contentLocation];
 			}
 		});
@@ -1326,19 +1205,23 @@ class ComposePopupView extends AbstractViewPopup {
 	addMessageAsAttachment(message) {
 		if (message) {
 			let temp = message.subject();
-			temp = '.eml' === temp.substr(-4).toLowerCase() ? temp : temp + '.eml';
+			temp = '.eml' === temp.slice(-4).toLowerCase() ? temp : temp + '.eml';
 
 			const attachment = new ComposeAttachmentModel(message.requestHash, temp, message.size());
-
 			attachment.fromMessage = true;
-			attachment.cancel = this.cancelAttachmentHelper(message.requestHash);
-			attachment
-				.waiting(false)
-				.uploading(true)
-				.complete(true);
-
-			this.attachments.push(attachment);
+			attachment.complete(true);
+			this.addAttachment(attachment);
 		}
+	}
+
+	addAttachment(attachment, view, oJua) {
+		oJua || attachment.waiting(false).uploading(true);
+		attachment.cancel = () => {
+			this.attachments.remove(attachment);
+			oJua?.cancel(attachment.id);
+		};
+		this.attachments.push(attachment);
+		view && this.attachmentsArea();
 	}
 
 	/**
@@ -1349,18 +1232,7 @@ class ComposePopupView extends AbstractViewPopup {
 	 */
 	addAttachmentHelper(url, name, size) {
 		const attachment = new ComposeAttachmentModel(url, name, size);
-
-		attachment.fromMessage = false;
-		attachment.cancel = this.cancelAttachmentHelper(url);
-		attachment
-			.waiting(false)
-			.uploading(true)
-			.complete(false);
-
-		this.attachments.push(attachment);
-
-		this.attachmentsPlace(true);
-
+		this.addAttachment(attachment, 1);
 		return attachment;
 	}
 
@@ -1370,35 +1242,25 @@ class ComposePopupView extends AbstractViewPopup {
 	 */
 	prepareMessageAttachments(message, type) {
 		if (message) {
-			if (ComposeType.ForwardAsAttachment === type) {
-				this.addMessageAsAttachment(message);
-			} else {
+			let reply = [ComposeType.Reply, ComposeType.ReplyAll].includes(type);
+			if (reply || [ComposeType.Forward, ComposeType.Draft, ComposeType.EditAsNew].includes(type)) {
 				message.attachments.forEach(item => {
-					let add = false;
-					switch (type) {
-						case ComposeType.Reply:
-						case ComposeType.ReplyAll:
-							break;
-
-						case ComposeType.Forward:
-						case ComposeType.Draft:
-						case ComposeType.EditAsNew:
-							add = true;
-							break;
-						// no default
-					}
-
-					if (add) {
-						const attachment = ComposeAttachmentModel.fromAttachment(item);
-						attachment.cancel = this.cancelAttachmentHelper(item.download);
-						attachment
-							.waiting(false)
-							.uploading(true)
-							.complete(false);
-
-						this.attachments.push(attachment);
+					if (!reply || item.isLinked()) {
+						const attachment = new ComposeAttachmentModel(
+							item.download,
+							item.fileName,
+							item.estimatedSize,
+							item.isInline(),
+							item.isLinked(),
+							item.cid,
+							item.contentLocation
+						);
+						attachment.fromMessage = true;
+						this.addAttachment(attachment);
 					}
 				});
+			} else if (ComposeType.ForwardAsAttachment === type) {
+				this.addMessageAsAttachment(message);
 			}
 		}
 	}
@@ -1410,7 +1272,7 @@ class ComposePopupView extends AbstractViewPopup {
 	isEmptyForm(includeAttachmentInProgress = true) {
 		const withoutAttachment = includeAttachmentInProgress
 			? !this.attachments.length
-			: !this.attachments.some(item => item && item.complete());
+			: !this.attachments.some(item => item?.complete());
 
 		return (
 			!this.to.length &&
@@ -1430,11 +1292,11 @@ class ComposePopupView extends AbstractViewPopup {
 		this.replyTo('');
 		this.subject('');
 
-		this.requestDsn(false);
-		this.requestReadReceipt(false);
+		this.requestDsn(SettingsUserStore.requestDsn());
+		this.requestReadReceipt(SettingsUserStore.requestReadReceipt());
 		this.markAsImportant(false);
 
-		this.attachmentsPlace(false);
+		this.bodyArea();
 
 		this.aDraftInfo = null;
 		this.sInReplyTo = '';
@@ -1452,39 +1314,214 @@ class ComposePopupView extends AbstractViewPopup {
 		this.showBcc(false);
 		this.showReplyTo(false);
 
-		delegateRunOnDestroy(this.attachments());
+		this.pgpSign(SettingsUserStore.pgpSign());
+		this.pgpEncrypt(SettingsUserStore.pgpEncrypt());
+
 		this.attachments([]);
 
 		this.dragAndDropOver(false);
 		this.dragAndDropVisible(false);
 
-		this.draftFolder('');
-		this.draftUid('');
+		this.draftsFolder('');
+		this.draftUid(0);
 
 		this.sending(false);
 		this.saving(false);
 
-		this.oEditor && this.oEditor.clear();
+		this.oEditor?.clear();
+
+		this.dropMailvelope();
 	}
 
-	/**
-	 * @returns {Array}
-	 */
-	getAttachmentsDownloadsForUpload() {
-		return this.attachments.filter(item => item && !item.tempName()).map(
-			item => item.id
-		);
-	}
-
-	resizerTrigger() {
-		let ro = this.resizeObserver,
-			height = Math.max(200, ro.compose.clientHeight - ro.header.offsetHeight - ro.toolbar.offsetHeight) + 'px';
-		if (ro.height !== height) {
-			ro.height = height;
-			ro.els.forEach(element => element.style.height = height);
-			this.oEditor && this.oEditor.resize();
+	mailvelopeArea() {
+		if (!this.mailvelope) {
+			/**
+			 * Creates an iframe with an editor for a new encrypted mail.
+			 * The iframe will be injected into the container identified by selector.
+			 * https://mailvelope.github.io/mailvelope/Editor.html
+			 */
+			let text = this.oEditor.getData(),
+				encrypted = PgpUserStore.isEncrypted(text),
+				size = SettingsGet('PhpUploadSizes')['post_max_size'],
+				quota = pInt(size);
+			switch (size.slice(-1)) {
+				case 'G': quota *= 1024; // fallthrough
+				case 'M': quota *= 1024; // fallthrough
+				case 'K': quota *= 1024;
+			}
+			// Issue: can't select signing key
+//			this.pgpSign(this.pgpSign() || confirm('Sign this message?'));
+			mailvelope.createEditorContainer('#mailvelope-editor', PgpUserStore.mailvelopeKeyring, {
+				// https://mailvelope.github.io/mailvelope/global.html#EditorContainerOptions
+				quota: Math.max(2048, (quota / 1024)) - 48, // (text + attachments) limit in kilobytes
+				armoredDraft: encrypted ? text : '', // Ascii Armored PGP Text Block
+				predefinedText: encrypted ? '' : (this.oEditor.isHtml() ? htmlToPlain(text) : text),
+/*
+				quotedMail: '', // Ascii Armored PGP Text Block mail that should be quoted
+				quotedMailIndent: true, // if true the quoted mail will be indented (default: true)
+				quotedMailHeader: '', // header to be added before the quoted mail
+				keepAttachments: false, // add attachments of quotedMail to editor (default: false)
+				// Issue: can't select signing key
+				signMsg: this.pgpSign()
+*/
+			}).then(editor => this.mailvelope = editor);
 		}
+		this.viewArea('mailvelope');
+	}
+	attachmentsArea() {
+		this.viewArea('attachments');
+	}
+	bodyArea() {
+		this.viewArea('body');
+	}
+
+	allRecipients() {
+		return [
+				// From/sender is also recipient (Sent mailbox)
+//				this.currentIdentity().email(),
+				this.from(),
+				this.to(),
+				this.cc(),
+				this.bcc()
+			].join(',').split(',').map(value => getEmail(value.trim())).validUnique();
+	}
+
+	initPgpEncrypt() {
+		const recipients = this.allRecipients();
+		PgpUserStore.hasPublicKeyForEmails(recipients).then(result => {
+			console.log({canPgpEncrypt:result});
+			this.canPgpEncrypt(result);
+		});
+		PgpUserStore.mailvelopeHasPublicKeyForEmails(recipients).then(result => {
+			console.log({canMailvelope:result});
+			this.canMailvelope(result);
+			if (!result) {
+				'mailvelope' === this.viewArea() && this.bodyArea();
+//				this.dropMailvelope();
+			}
+		});
+	}
+
+	togglePgpSign() {
+		this.pgpSign(!this.pgpSign()/* && this.canPgpSign()*/);
+	}
+
+	togglePgpEncrypt() {
+		this.pgpEncrypt(!this.pgpEncrypt()/* && this.canPgpEncrypt()*/);
+	}
+
+	async getMessageRequestParams(sSaveFolder, draft)
+	{
+		const
+			identity = this.currentIdentity(),
+			params = {
+				IdentityID: identity.id(),
+				MessageFolder: this.draftsFolder(),
+				MessageUid: this.draftUid(),
+				SaveFolder: sSaveFolder,
+				From: this.from(),
+				To: this.to(),
+				Cc: this.cc(),
+				Bcc: this.bcc(),
+				ReplyTo: this.replyTo(),
+				subject: this.subject(),
+				DraftInfo: this.aDraftInfo,
+				InReplyTo: this.sInReplyTo,
+				References: this.sReferences,
+				MarkAsImportant: this.markAsImportant() ? 1 : 0,
+				Attachments: this.prepareAttachmentsForSendOrSave(),
+				// Only used at send, not at save:
+				Dsn: this.requestDsn() ? 1 : 0,
+				ReadReceiptRequest: this.requestReadReceipt() ? 1 : 0
+			},
+			recipients = draft ? [identity.email()] : this.allRecipients(),
+			sign = !draft && this.pgpSign() && this.canPgpSign(),
+			encrypt = this.pgpEncrypt() && this.canPgpEncrypt(),
+			TextIsHtml = this.oEditor.isHtml();
+
+		let Text = this.oEditor.getData();
+		if (TextIsHtml) {
+			let l;
+			do {
+				l = Text.length;
+				Text = Text
+					// Remove Microsoft Office styling
+					.replace(/(<[^>]+[;"'])\s*mso-[a-z-]+\s*:[^;"']+/gi, '$1')
+					// Remove hubspot data-hs- attributes
+					.replace(/(<[^>]+)\s+data-hs-[a-z-]+=("[^"]+"|'[^']+')/gi, '$1');
+			} while (l != Text.length)
+			params.Html = Text;
+			params.Text = htmlToPlain(Text);
+		} else {
+			params.Text = Text;
+		}
+
+		if (this.mailvelope && 'mailvelope' === this.viewArea()) {
+			params.Encrypted = draft
+				? await this.mailvelope.createDraft()
+				: await this.mailvelope.encrypt(recipients);
+		} else if (sign || encrypt) {
+			let data = new MimePart;
+			data.headers['Content-Type'] = 'text/'+(TextIsHtml?'html':'plain')+'; charset="utf-8"';
+			data.headers['Content-Transfer-Encoding'] = 'base64';
+			data.body = base64_encode(Text);
+			if (TextIsHtml) {
+				const alternative = new MimePart, plain = new MimePart;
+				alternative.headers['Content-Type'] = 'multipart/alternative';
+				plain.headers['Content-Type'] = 'text/plain; charset="utf-8"';
+				plain.headers['Content-Transfer-Encoding'] = 'base64';
+				plain.body = base64_encode(params.Text);
+				// First add plain
+				alternative.children.push(plain);
+				// Now add HTML
+				alternative.children.push(data);
+				data = alternative;
+			}
+			if (!draft && sign?.[1]) {
+				if ('openpgp' == sign[0]) {
+					// Doesn't sign attachments
+					params.Html = params.Text = '';
+					let signed = new MimePart;
+					signed.headers['Content-Type'] =
+						'multipart/signed; micalg="pgp-sha256"; protocol="application/pgp-signature"';
+					signed.headers['Content-Transfer-Encoding'] = '7Bit';
+					signed.children.push(data);
+					let signature = new MimePart;
+					signature.headers['Content-Type'] = 'application/pgp-signature; name="signature.asc"';
+					signature.headers['Content-Transfer-Encoding'] = '7Bit';
+					signature.body = await OpenPGPUserStore.sign(data.toString(), sign[1], 1);
+					signed.children.push(signature);
+					params.Signed = signed.toString();
+					params.Boundary = signed.boundary;
+					data = signed;
+				} else if ('gnupg' == sign[0]) {
+					// TODO: sign in PHP fails
+//					params.SignData = data.toString();
+					params.SignFingerprint = sign[1].fingerprint;
+					params.SignPassphrase = await GnuPGUserStore.sign(sign[1]);
+				} else {
+					throw 'Signing with ' + sign[0] + ' not yet implemented';
+				}
+			}
+			if (encrypt) {
+				if ('openpgp' == encrypt) {
+					// Doesn't encrypt attachments
+					params.Encrypted = await OpenPGPUserStore.encrypt(data.toString(), recipients);
+					params.Signed = '';
+				} else if ('gnupg' == encrypt) {
+					// Does encrypt attachments
+					params.EncryptFingerprints = JSON.stringify(GnuPGUserStore.getPublicKeyFingerprints(recipients));
+				} else {
+					throw 'Encryption with ' + encrypt + ' not yet implemented';
+				}
+			}
+		}
+		return params;
 	}
 }
 
-export { ComposePopupView, ComposePopupView as default };
+/**
+ * When view is closed and reopened, fill it with previous data.
+ * This, for example, happens when opening Contacts view to select recipients
+ */
+ComposePopupView.inEdit = ko.observable(false);

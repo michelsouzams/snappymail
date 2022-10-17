@@ -12,6 +12,7 @@ snappymail-nextcloud is a plugin for Nextcloud to use the excellent SnappyMail w
 
 Thank you to all contributors to SnappyMail for nextcloud:
 - SnappyMail Team, who initiated it
+- [pierre-alain-b](https://github.com/pierre-alain-b/rainloop-nextcloud)
 - Tab Fitts (@tabp0le)
 - Nextgen Networks (@nextgen-networks)
 
@@ -19,21 +20,21 @@ Thank you to all contributors to SnappyMail for nextcloud:
 
 Start within Nextcloud, and click on the "+ Apps" button in the upper-left corner dropdown menu:
 
-![Image1](https://github.com/pierre-alain-b/snappymail-nextcloud/blob/master/screenshots/help_a1.png)
+![Image1](https://github.com/pierre-alain-b/rainloop-nextcloud/blob/master/screenshots/help_a1.png)
 
 Then, enable the SnappyMail plugin that you will find in the "Social & communication" section:
 
-![Image2](https://github.com/pierre-alain-b/snappymail-nextcloud/blob/master/screenshots/help_a2.png)
+![Image2](https://github.com/pierre-alain-b/rainloop-nextcloud/blob/master/screenshots/help_a2.png)
 
 After a quick wait, SnappyMail is installed. Now you should configure it before use: open the Nextcloud admin panel (upper-right corner dropdown menu) and go to "Additionnal settings". There, click on the "Go to SnappyMail Webmail admin panel" link.
 
-![Image3](https://github.com/pierre-alain-b/snappymail-nextcloud/blob/master/screenshots/help_a3.png)
+![Image3](https://github.com/pierre-alain-b/rainloop-nextcloud/blob/master/screenshots/help_a3.png)
 
-To enter SnappyMail admin area, the default login is "admin" and the default password is "12345". Don't forget to change it once in the admin panel!
+To enter SnappyMail admin area, the default login is "admin" and the default password will be generated in `[nextcloud-data]/app_snappymail/_data_/_default_/admin_password.txt`. Don't forget to change it once in the admin panel!
 
 From that point, all instance-wide SnappyMail settings can be tweaked as you wish. One important point is the "Domains" section where you should set up the IMAP/SMTP parameters that will be associated with the email adresses of your users. Basically, if a user of the Nextcloud instance starts SnappyMail and puts "firstname@domain.tld" as an email address, then SnappyMail should know how to connect to the IMAP & SMTP of domain.tld. You can fill in this information in the "Domains" section of the SnappyMail admin settings.
 
-![Image4](https://github.com/pierre-alain-b/snappymail-nextcloud/blob/master/screenshots/help_a4.png)
+![Image4](https://github.com/pierre-alain-b/rainloop-nextcloud/blob/master/screenshots/help_a4.png)
 
 ## SnappyMail Settings, Where Are They?
 
@@ -68,9 +69,9 @@ To fill in the default email address and password to use, each Nextcloud user sh
 
 ## How to Activate SnappyMail Logging and then Find Logs
 
-You can activate SnappyMail logging here: `/path/to/nextcloud/data/snappymail-storage/_data_/_default_/configs/application.ini`
+You can activate SnappyMail logging here: `/path/to/nextcloud/data/appdata_snappymail/_data_/_default_/configs/application.ini`
 ```
 [logs]
 enable = On
 ```
-Logs are then available in `/path/to/nextcloud/data/snappymail-storage/_data_/_default_/logs/`
+Logs are then available in `/path/to/nextcloud/data/appdata_snappymail/_data_/_default_/logs/`

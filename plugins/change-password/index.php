@@ -6,11 +6,11 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 {
 	const
 		NAME     = 'Change Password',
-		VERSION  = '2.2',
-		RELEASE  = '2021-07-20',
-		REQUIRED = '2.5.0',
+		VERSION  = '2.16.3',
+		RELEASE  = '2022-10-14',
+		REQUIRED = '2.12.0',
 		CATEGORY = 'Security',
-		DESCRIPTION = 'This plugin allows you to change passwords of email accounts';
+		DESCRIPTION = 'Extension to allow users to change their passwords';
 
 	// \RainLoop\Notifications\
 	const
@@ -23,7 +23,7 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 	{
 		$this->UseLangs(true); // start use langs folder
 
-		$this->addCss('style.less');
+//		$this->addCss('style.css');
 		$this->addJs('js/ChangePasswordUserSettings.js'); // add js file
 		$this->addJsonHook('ChangePassword', 'ChangePassword');
 		$this->addTemplate('templates/SettingsChangePassword.html');
@@ -52,7 +52,6 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 				}
 			}
 		} else {
-//			foreach (\glob(__DIR__ . '/../change-password-*', GLOB_ONLYDIR) as $file) {
 			foreach (\glob(__DIR__ . '/drivers/*.php') as $file) {
 				$name = \basename($file, '.php');
 				$class = 'ChangePasswordDriver' . $name;
@@ -69,6 +68,25 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 				{
 					\trigger_error("ERROR {$class}: " . $oException->getMessage());
 				}
+			}
+		}
+
+		foreach (\glob(__DIR__ . '/../change-password-*', GLOB_ONLYDIR) as $file) {
+			$name = \str_replace('change-password-', '', \basename($file));
+			$class = "ChangePassword{$name}Driver";
+			$file .= '/driver.php';
+			try
+			{
+				if (\is_readable($file) && ($all || $this->Config()->Get('plugin', "driver_{$name}_enabled", false))) {
+					require_once $file;
+					if ($class::isSupported()) {
+						yield $name => $class;
+					}
+				}
+			}
+			catch (\Throwable $oException)
+			{
+				\trigger_error("ERROR {$class}: " . $oException->getMessage());
 			}
 		}
 	}
@@ -96,16 +114,21 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 				->SetDefaultValue(70),
 		];
 		foreach ($this->getSupportedDrivers(true) as $name => $class) {
-			$result[] = \RainLoop\Plugins\Property::NewInstance("driver_{$name}_enabled")
-				->SetLabel('Enable ' . $class::NAME)
-				->SetType(\RainLoop\Enumerations\PluginPropertyType::BOOL)
-				->SetDescription($class::DESCRIPTION);
-			$result[] = \RainLoop\Plugins\Property::NewInstance("driver_{$name}_allowed_emails")
-				->SetLabel('Allowed emails')
-				->SetType(\RainLoop\Enumerations\PluginPropertyType::STRING_TEXT)
-				->SetDescription('Allowed emails, space as delimiter, wildcard supported. Example: user1@example.net user2@example1.net *@example2.net')
-				->SetDefaultValue('*');
-			$result = \array_merge($result, \call_user_func("{$class}::configMapping"));
+			$group = new \RainLoop\Plugins\PropertyCollection($name);
+			$props = [
+				\RainLoop\Plugins\Property::NewInstance("driver_{$name}_enabled")
+					->SetLabel('Enable ' . $class::NAME)
+					->SetType(\RainLoop\Enumerations\PluginPropertyType::BOOL)
+					->SetDescription($class::DESCRIPTION)
+					->SetDefaultValue(false),
+				\RainLoop\Plugins\Property::NewInstance("driver_{$name}_allowed_emails")
+					->SetLabel('Allowed emails')
+					->SetType(\RainLoop\Enumerations\PluginPropertyType::STRING_TEXT)
+					->SetDescription('Allowed emails, space as delimiter, wildcard supported. Example: user1@example.net user2@example1.net *@example2.net')
+					->SetDefaultValue('*')
+			];
+			$group->exchangeArray(\array_merge($props, \call_user_func("{$class}::configMapping")));
+			$result[] = $group;
 		}
 		return $result;
 	}
@@ -137,8 +160,7 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 		$bResult = false;
 		$oConfig = $this->Config();
 		foreach ($this->getSupportedDrivers() as $name => $class) {
-			$sFoundedValue = '';
-			if (\RainLoop\Plugins\Helper::ValidateWildcardValues($oAccount->Email(), $oConfig->Get('plugin', "driver_{$name}_allowed_emails"), $sFoundedValue)) {
+			if (\RainLoop\Plugins\Helper::ValidateWildcardValues($oAccount->Email(), $oConfig->Get('plugin', "driver_{$name}_allowed_emails"))) {
 				$name = $class::NAME;
 				$oLogger = $oActions->Logger();
 				try
@@ -161,7 +183,7 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 					if ($oLogger) {
 						$oLogger->Write("ERROR: {$name} password change for {$oAccount->Email()} failed");
 						$oLogger->WriteException($oException);
-//						$oLogger->WriteException($oException, \MailSo\Log\Enumerations\Type::WARNING, $name);
+//						$oLogger->WriteException($oException, \LOG_WARNING, $name);
 					}
 				}
 			}
@@ -173,9 +195,11 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 		}
 
 		$oAccount->SetPassword($sNewPassword);
-		$oActions->SetAuthToken($oAccount);
+		if ($oAccount instanceof \RainLoop\Model\MainAccount) {
+			$oActions->SetAuthToken($oAccount);
+		}
 
-		return $this->jsonResponse(__FUNCTION__, $oActions->GetSpecAuthToken());
+		return $this->jsonResponse(__FUNCTION__, $oActions->AppData(false));
 	}
 
 	public static function encrypt(string $algo, string $password)
@@ -201,7 +225,7 @@ class ChangePasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
 				break;
 		}
 
-		return $sPassword;
+		return $password;
 	}
 
 	private static function PasswordStrength(string $sPassword) : int

@@ -3,30 +3,35 @@ namespace OCA\SnappyMail\Settings;
 
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IConfig;
+use OCP\Settings\ISettings;
 
-class PersonalSettings {
+class PersonalSettings implements ISettings
+{
 	private $config;
 
-	public function __construct(IConfig $config) {
+	public function __construct(IConfig $config)
+	{
 		$this->config = $config;
 	}
 
-	public function getForm() {
+	public function getForm()
+	{
 		$uid = \OC::$server->getUserSession()->getUser()->getUID();
-
-		$keys = [
-			'snappymail-email',
-			'snappymail-password'
+		$parameters = [
+			'snappymail-email' => $this->config->getUserValue($uid, 'snappymail', 'snappymail-email'),
+			'snappymail-password' => $this->config->getUserValue($uid, 'snappymail', 'snappymail-password') ? '******' : ''
 		];
-
-		$parameters = [];
-		foreach ($keys as $k) {
-			$v = $this->config->getUserValue($uid, 'snappymail', $k);
-			$parameters[$k] = $v;
-		}
-
+		\OCP\Util::addScript('snappymail', 'snappymail');
 		return new TemplateResponse('snappymail', 'personal_settings', $parameters, '');
 	}
 
-}
+	public function getSection()
+	{
+		return 'additional';
+	}
 
+	public function getPriority()
+	{
+		return 50;
+	}
+}

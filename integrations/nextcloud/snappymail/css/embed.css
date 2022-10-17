@@ -1,0 +1,95 @@
+/*
+This stylesheet is used when SnappyMail runs in embed mode.
+*/
+#rl-app {
+	position: relative;
+	min-width: 100%;
+	min-height: 100%;
+}
+
+#content[class*="app-"] #rl-app * {
+	box-sizing: content-box;
+}
+#content[class*="app-"] #rl-app #V-Settings-Domains .domain-name,
+#content[class*="app-"] #rl-app #V-Settings-Domains .domain-alias
+#content[class*="app-"] #rl-app #rl-settings-subscreen,
+#content[class*="app-"] #rl-app .e-checkbox.material-design > div > div,
+#content[class*="app-"] #rl-app .attachmentItem .iconMain,
+#content[class*="app-"] #rl-app .attachmentItem .iconPreview,
+#content[class*="app-"] #rl-app #V-PopupsCompose .textAreaParent,
+#content[class*="app-"] #rl-app #V-PopupsCompose .attachmentAreaParent,
+#content[class*="app-"] #rl-app .emailaddresses,
+#content[class*="app-"] #rl-app .squire-wysiwyg,
+#content[class*="app-"] #rl-app .squire-plain,
+/* bootstrap */
+#content[class*="app-"] #rl-app .btn-block,
+#content[class*="app-"] #rl-app select,
+#content[class*="app-"] #rl-app .select,
+#content[class*="app-"] #rl-app textarea,
+#content[class*="app-"] #rl-app input,
+#content[class*="app-"] #rl-app .input-block-level,
+#content[class*="app-"] #rl-app .icon-spinner
+{
+	box-sizing: border-box;
+}
+.squire-wysiwyg {
+	min-width: 100%;
+	min-height: 100%;
+}
+
+#rl-app select,
+#rl-app input
+{
+	min-height: auto;
+	height: auto;
+	margin: 0;
+	padding: 3px;
+}
+button.btn:not(.button-vue) {
+	min-height: auto;
+	height: auto;
+	margin: 0;
+	padding: 4px 12px;
+}
+#rl-app .form-horizontal .control-group > :not(label)
+{
+	margin-left: 20px;
+}
+#rl-app .LoginView .fontastic + input {
+	padding-left: 30px;
+}
+
+#rl-app .loading::after {
+	display: none;
+}
+
+#rl-app .squire-plain, #rl-app .squire-wysiwyg {
+	box-sizing: border-box;
+	font-size: 13px;
+	height: 100%;
+	line-height: 16px;
+	min-height: 200px;
+}
+
+#V-PopupsCompose header {
+	background-color: var(--color-primary);
+	background-image: linear-gradient(40deg, #0082c9 0%, #30b6ff 100%);
+	color: #fff;
+}
+
+#rl-app tbody tr:hover {
+	background-color: inherit;
+}
+
+#appmenu {
+	margin: 0;
+}
+
+@media print {
+	#body-user #header {
+		display: none;
+	}
+	#content {
+		padding-top: 0;
+	}
+}

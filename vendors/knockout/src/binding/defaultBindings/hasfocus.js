@@ -1,5 +1,5 @@
-var hasfocusUpdatingProperty = '__ko_hasfocusUpdating';
-var hasfocusLastValue = '__ko_hasfocusLastValue';
+const hasfocusUpdatingProperty = '__ko_hasfocusUpdating',
+    hasfocusLastValue = '__ko_hasfocusLastValue';
 ko.bindingHandlers['hasfocus'] = {
     'init': (element, valueAccessor, allBindings) => {
         var handleElementFocusChange = isFocused => {
@@ -11,8 +11,7 @@ ko.bindingHandlers['hasfocus'] = {
             // Discussion at https://github.com/SteveSanderson/knockout/pull/352
             element[hasfocusUpdatingProperty] = true;
             isFocused = (element.ownerDocument.activeElement === element);
-            var modelValue = valueAccessor();
-            ko.expressionRewriting.writeValueToProperty(modelValue, allBindings, 'hasfocus', isFocused, true);
+            ko.expressionRewriting.writeValueToProperty(valueAccessor(), allBindings, 'hasfocus', isFocused, true);
 
             //cache the latest value, so we can avoid unnecessarily calling focus/blur in the update function
             element[hasfocusLastValue] = isFocused;
@@ -21,10 +20,10 @@ ko.bindingHandlers['hasfocus'] = {
         var handleElementFocusIn = handleElementFocusChange.bind(null, true);
         var handleElementFocusOut = handleElementFocusChange.bind(null, false);
 
-        ko.utils.registerEventHandler(element, "focus", handleElementFocusIn);
-        ko.utils.registerEventHandler(element, "focusin", handleElementFocusIn);
-        ko.utils.registerEventHandler(element, "blur",  handleElementFocusOut);
-        ko.utils.registerEventHandler(element, "focusout",  handleElementFocusOut);
+        element.addEventListener("focus", handleElementFocusIn);
+        element.addEventListener("focusin", handleElementFocusIn);
+        element.addEventListener("blur",  handleElementFocusOut);
+        element.addEventListener("focusout",  handleElementFocusOut);
 
         // Assume element is not focused (prevents "blur" being called initially)
         element[hasfocusLastValue] = false;
@@ -37,4 +36,4 @@ ko.bindingHandlers['hasfocus'] = {
         }
     }
 };
-ko.expressionRewriting.twoWayBindings['hasfocus'] = true;
+ko.expressionRewriting.twoWayBindings.add('hasfocus');

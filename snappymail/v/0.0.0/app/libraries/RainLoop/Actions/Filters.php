@@ -2,7 +2,7 @@
 
 namespace RainLoop\Actions;
 
-use \RainLoop\Enumerations\Capa;
+use RainLoop\Enumerations\Capa;
 
 trait Filters
 {
@@ -18,7 +18,7 @@ trait Filters
 	{
 		$oAccount = $this->getAccountFromToken();
 
-		if (!$this->GetCapa(false, Capa::SIEVE, $oAccount))
+		if (!$this->GetCapa(Capa::SIEVE, $oAccount))
 		{
 			return $this->FalseResponse(__FUNCTION__);
 		}
@@ -33,31 +33,18 @@ trait Filters
 	{
 		$oAccount = $this->getAccountFromToken();
 
-		if (!$this->GetCapa(false, Capa::SIEVE, $oAccount)) {
+		if (!$this->GetCapa(Capa::SIEVE, $oAccount)) {
 			return $this->FalseResponse(__FUNCTION__);
 		}
 
 		$sName = $this->GetActionParam('name', '');
-
-		$aFilters = array();
-		if (\RainLoop\Providers\Filters\SieveStorage::SIEVE_FILE_NAME === $sName) {
-			$aIncFilters = $this->GetActionParam('filters', array());
-			foreach ($aIncFilters as $aFilter) {
-				if (\is_array($aFilter)) {
-					$oFilter = new \RainLoop\Providers\Filters\Classes\Filter();
-					if ($oFilter->FromJSON($aFilter)) {
-						$aFilters[] = $oFilter;
-					}
-				}
-			}
-		}
 
 		if ($this->GetActionParam('active', false)) {
 //			$this->FiltersProvider()->ActivateScript($oAccount, $sName);
 		}
 
 		return $this->DefaultResponse(__FUNCTION__, $this->FiltersProvider()->Save(
-			$oAccount, $sName, $aFilters, $this->GetActionParam('body', '')
+			$oAccount, $sName, $this->GetActionParam('body', '')
 		));
 	}
 
@@ -68,7 +55,7 @@ trait Filters
 	{
 		$oAccount = $this->getAccountFromToken();
 
-		if (!$this->GetCapa(false, Capa::SIEVE, $oAccount)) {
+		if (!$this->GetCapa(Capa::SIEVE, $oAccount)) {
 			return $this->FalseResponse(__FUNCTION__);
 		}
 
@@ -84,7 +71,7 @@ trait Filters
 	{
 		$oAccount = $this->getAccountFromToken();
 
-		if (!$this->GetCapa(false, Capa::SIEVE, $oAccount)) {
+		if (!$this->GetCapa(Capa::SIEVE, $oAccount)) {
 			return $this->FalseResponse(__FUNCTION__);
 		}
 
